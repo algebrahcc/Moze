@@ -2,6 +2,7 @@
 import { Plot } from '@/components/ui/plot'
 import AppIcon from '@/components/AppIcon.vue'
 import EmptyStateIllustration from '@/components/illustrations/EmptyStateIllustration.vue'
+import { Button } from '@/components/ui/button'
 import { computed } from 'vue'
 
 const supabase = useSupabaseClient()
@@ -17,8 +18,10 @@ const snapshots30Count = ref<number | null>(null)
 const recentTransactions = ref<any[]>([])
 const netAssets = ref<number | null>(null)
 const todayPnl = ref<number | null>(null)
-const assetTrendPoints = ref<number[]>([])
+const assetTrendPoints = ref<any[]>([])
 const accountBreakdown = ref<{ type: string; value: number }[]>([])
+const topExpenses = ref<any[]>([])
+const monthBudget = ref<number | null>(null)
 
 const trendChartType = ref<'line' | 'stacked' | 'donut'>('line')
 const categoryChartType = ref<'line' | 'stacked' | 'donut'>('donut')
@@ -73,6 +76,10 @@ async function loadSummary() {
   }
 
   const accountIds = (accountsData ?? []).map((a) => a.id)
+  const accountTypeMap: Record<string, string> = {}
+  for (const a of accountsData ?? []) {
+    accountTypeMap[a.id] = a.type
+  }
   const stockIds = (accountsData ?? []).filter((a) => a.type === 'stock').map((a) => a.id)
 
   const [
@@ -83,7 +90,8 @@ async function loadSummary() {
     { data: allTx, error: allTxErr },
     { data: latestSnapshots, error: latestErr },
     { data: trendSnapshots, error: trendErr },
-    { data: todaySnapshots, error: todayErr }
+    { data: todaySnapshots, error: todayErr },
+    { data: budgetData, error: budgetErr }
   ] = await Promise.all([
     supabase
       .from('transactions')
@@ -134,18 +142,24 @@ async function loadSummary() {
           .in('account_id', stockIds)
           .eq('date', todayIso)
       : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from('budgets')
+      .select('amount')
+      .eq('month', monthStart.slice(0, 10))
+      .maybeSingle()
   ])
 
   loading.value = false
 
-  if (txErr || sErr || rTxErr || yTxErr || allTxErr || latestErr || trendErr || todayErr) {
-    errorMessage.value = txErr?.message || sErr?.message || rTxErr?.message || yTxErr?.message || allTxErr?.message || latestErr?.message || trendErr?.message || todayErr?.message || '读取失败'
+  if (txErr || sErr || rTxErr || yTxErr || allTxErr || latestErr || trendErr || todayErr || budgetErr) {
+    errorMessage.value = txErr?.message || sErr?.message || rTxErr?.message || yTxErr?.message || allTxErr?.message || latestErr?.message || trendErr?.message || todayErr?.message || budgetErr?.message || '读取失败'
     return
   }
 
   accountsCount.value = accountIds.length
   snapshots30Count.value = sCount ?? 0
   recentTransactions.value = recentTx ?? []
+  monthBudget.value = budgetData?.amount ? Number(budgetData.amount) : null
 
   // Calculate monthly stats
   let expense = 0
@@ -153,6 +167,7 @@ async function loadSummary() {
   let todayExpense = 0
   let todayIncome = 0
   const catMap: Record<string, number> = {}
+  const expensesList: any[] = []
 
   for (const row of txData ?? []) {
     const amt = Number(row.amount ?? 0)
@@ -162,6 +177,10 @@ async function loadSummary() {
       if (txDate === todayIso) todayExpense += amt
       const cat = row.category || '无分类'
       catMap[cat] = (catMap[cat] || 0) + amt
+      expensesList.push({
+        ...row,
+        amount: amt
+      })
     }
     if (row.type === 'income') {
       income += amt
@@ -170,6 +189,17 @@ async function loadSummary() {
   }
   monthExpense.value = expense
   monthIncome.value = income
+  
+  // Get top 5 expenses
+  topExpenses.value = expensesList
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5)
+
+  const budgetUsagePercent = computed(() => {
+    if (!monthBudget.value) return 0
+    const percent = (expense / monthBudget.value) * 100
+    return Math.min(100, Math.max(0, percent))
+  })
 
   const balances: Record<string, number> = {}
   for (const id of accountIds) balances[id] = 0
@@ -229,9 +259,15 @@ async function loadSummary() {
     const key = row.date
     trendMap[key] = (trendMap[key] ?? 0) + Number(row.total_value ?? 0)
   }
+  
+  // Create area chart data
   assetTrendPoints.value = Object.entries(trendMap)
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([, v]) => v)
+    .map(([date, value]) => ({
+      x: date.slice(5), // '03-04'
+      y: value,
+      series: '净资产'
+    }))
 
   // Prepare Category Chart Data
   categoryData.value = Object.entries(catMap)
@@ -322,16 +358,38 @@ watchEffect(() => {
     loadSummary()
   }
 })
+
+const budgetUsagePercent = computed(() => {
+  if (!monthBudget.value || !monthExpense.value) return 0
+  const percent = (monthExpense.value / monthBudget.value) * 100
+  return Math.min(100, Math.max(0, percent))
+})
 </script>
 
 <template>
   <div class="space-y-8 pb-10">
-    <!-- Header -->
-    <div class="flex flex-col gap-1">
-      <h1 class="text-3xl font-semibold tracking-tight">总览</h1>
-      <p class="text-muted-foreground">
-        {{ new Date().getHours() < 12 ? '早上好' : new Date().getHours() < 18 ? '下午好' : '晚上好' }}，这里是你的财务概览。
-      </p>
+    <!-- Header with Quick Actions -->
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div class="flex flex-col gap-1">
+        <h1 class="text-3xl font-semibold tracking-tight">总览</h1>
+        <p class="text-muted-foreground">
+          {{ new Date().getHours() < 12 ? '早上好' : new Date().getHours() < 18 ? '下午好' : '晚上好' }}，这里是你的财务概览。
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <Button as-child variant="outline" size="sm" class="h-9">
+          <NuxtLink to="/transactions" class="flex items-center gap-2">
+            <AppIcon name="lucide:plus" :size="16" />
+            <span>记一笔</span>
+          </NuxtLink>
+        </Button>
+        <Button as-child variant="outline" size="sm" class="h-9">
+          <NuxtLink to="/investments/snapshots" class="flex items-center gap-2">
+            <AppIcon name="lucide:trending-up" :size="16" />
+            <span>录入净值</span>
+          </NuxtLink>
+        </Button>
+      </div>
     </div>
 
     <div v-if="errorMessage" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
@@ -339,74 +397,82 @@ watchEffect(() => {
     </div>
 
     <!-- Stats Grid -->
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-      <Card class="bg-card/50 backdrop-blur-sm">
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <!-- Net Assets -->
+      <Card class="bg-card/50 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle class="text-sm font-medium">净资产</CardTitle>
           <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
-            <AppIcon name="lucide:line-chart" :size="16" />
+            <AppIcon name="lucide:wallet" :size="16" />
           </div>
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold font-numeric">
             {{ loading ? '—' : (netAssets !== null ? `¥${netAssets.toFixed(2)}` : '¥0.00') }}
           </div>
-          <p class="text-xs text-muted-foreground mt-1">
-            资产净值合计
-          </p>
+          <div class="flex items-center gap-2 mt-1">
+            <span class="text-xs text-muted-foreground">
+              {{ accountsCount ?? 0 }} 个活跃账户
+            </span>
+          </div>
         </CardContent>
       </Card>
 
-      <Card class="bg-card/50 backdrop-blur-sm">
+      <!-- Monthly Balance -->
+      <Card class="bg-card/50 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">总账户数</CardTitle>
+          <CardTitle class="text-sm font-medium">本月结余</CardTitle>
           <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <AppIcon name="lucide:wallet-cards" :size="16" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div class="text-2xl font-bold font-numeric">{{ loading ? '—' : (accountsCount ?? 0) }}</div>
-          <p class="text-xs text-muted-foreground mt-1">
-            活跃资产账户
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card class="bg-card/50 backdrop-blur-sm">
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">本月支出</CardTitle>
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-            <AppIcon name="lucide:trending-down" :size="16" />
+            <AppIcon name="lucide:piggy-bank" :size="16" />
           </div>
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold font-numeric">
-            {{ loading ? '—' : (monthExpense ? `¥${monthExpense.toFixed(2)}` : '¥0.00') }}
+            {{ loading ? '—' : `¥${((monthIncome ?? 0) - (monthExpense ?? 0)).toFixed(2)}` }}
           </div>
-          <p class="text-xs text-muted-foreground mt-1">
-            {{ new Date().getMonth() + 1 }}月累计
-          </p>
+          <div class="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+            <span class="text-green-600 flex items-center gap-0.5">
+              <AppIcon name="lucide:arrow-down" :size="12" />
+              {{ (monthIncome ?? 0).toFixed(0) }}
+            </span>
+            <span class="text-muted-foreground/30">|</span>
+            <span class="text-destructive flex items-center gap-0.5">
+              <AppIcon name="lucide:arrow-up" :size="12" />
+              {{ (monthExpense ?? 0).toFixed(0) }}
+            </span>
+          </div>
         </CardContent>
       </Card>
 
-      <Card class="bg-card/50 backdrop-blur-sm">
+      <!-- Budget -->
+      <Card class="bg-card/50 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">本月收入</CardTitle>
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/10 text-green-600">
-            <AppIcon name="lucide:trending-up" :size="16" />
+          <CardTitle class="text-sm font-medium">本月预算</CardTitle>
+          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600">
+            <AppIcon name="lucide:target" :size="16" />
           </div>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold font-numeric">
-            {{ loading ? '—' : (monthIncome ? `¥${monthIncome.toFixed(2)}` : '¥0.00') }}
+          <div v-if="!monthBudget" class="flex h-[32px] items-center text-sm text-muted-foreground">
+            未设置预算
           </div>
-          <p class="text-xs text-muted-foreground mt-1">
-            {{ new Date().getMonth() + 1 }}月累计
-          </p>
+          <div v-else>
+            <div class="text-2xl font-bold font-numeric">
+              {{ (budgetUsagePercent).toFixed(0) }}%
+            </div>
+            <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+              <div 
+                class="h-full rounded-full transition-all duration-500" 
+                :class="budgetUsagePercent > 100 ? 'bg-destructive' : 'bg-primary'"
+                :style="{ width: `${budgetUsagePercent}%` }"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      <Card class="bg-card/50 backdrop-blur-sm">
+      <!-- Today PnL -->
+      <Card class="bg-card/50 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle class="text-sm font-medium">今日盈亏</CardTitle>
           <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
@@ -424,40 +490,95 @@ watchEffect(() => {
       </Card>
     </div>
 
-    <!-- Charts Section -->
-    <div class="grid gap-4 md:grid-cols-2">
+    <!-- Asset Analysis Section -->
+    <div class="grid gap-4 md:grid-cols-3">
+      <Card class="md:col-span-2 bg-card/60 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle>资产趋势 (近30天)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div class="h-[280px] w-full">
+            <ClientOnly>
+              <Plot
+                type="area"
+                :data="assetTrendPoints"
+                :colors="['#10b981']"
+              />
+            </ClientOnly>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card class="bg-card/60 backdrop-blur-sm flex flex-col">
+        <CardHeader>
+          <CardTitle>账户构成</CardTitle>
+        </CardHeader>
+        <CardContent class="flex-1">
+          <div v-if="accountBreakdown.length" class="space-y-5">
+            <div
+              v-for="item in accountBreakdown"
+              :key="item.type"
+              class="space-y-2"
+            >
+              <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-2">
+                  <div class="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                    <AppIcon 
+                      :name="item.type === 'stock' ? 'lucide:trending-up' : (item.type === 'credit' ? 'lucide:credit-card' : 'lucide:wallet')" 
+                      :size="14" 
+                    />
+                  </div>
+                  <span class="font-medium">{{ labelForAccountType(item.type) }}</span>
+                </div>
+                <div class="flex flex-col items-end">
+                  <span class="font-medium font-numeric">¥{{ item.value.toFixed(2) }}</span>
+                  <span class="text-xs text-muted-foreground font-numeric">
+                    {{ netAssets && netAssets > 0 ? ((item.value / netAssets) * 100).toFixed(1) : 0 }}%
+                  </span>
+                </div>
+              </div>
+              <div class="h-1.5 w-full rounded-full bg-secondary">
+                <div
+                  class="h-1.5 rounded-full transition-all duration-500"
+                  :class="item.type === 'stock' ? 'bg-blue-500' : (item.type === 'credit' ? 'bg-orange-500' : 'bg-green-500')"
+                  :style="{
+                    width: `${netAssets && netAssets > 0 ? (item.value / netAssets) * 100 : 0}%`
+                  }"
+                />
+              </div>
+            </div>
+          </div>
+          <div v-else class="flex h-full items-center justify-center text-sm text-muted-foreground">
+            暂无账户数据
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+
+    <!-- Income & Expense Analysis -->
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <!-- Monthly Trend Chart -->
-      <Card class="rounded-lg bg-card/60 shadow-[0_18px_40px_-26px_rgba(15,23,42,0.6)] backdrop-blur-sm">
+      <Card class="lg:col-span-2 bg-card/60 backdrop-blur-sm">
         <CardHeader class="gap-3">
           <div class="flex items-center justify-between">
-            <CardTitle class="text-sm font-medium">近半年收支趋势</CardTitle>
-            <div class="flex items-center gap-2">
-              <div class="flex items-center gap-1 rounded-lg border border-border/60 bg-background/70 p-1 text-xs">
-                <button
-                  type="button"
-                  class="px-2 py-1 rounded-md transition"
-                  :class="trendChartType === 'line' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
-                  @click="trendChartType = 'line'"
-                >
-                  线
-                </button>
-                <button
-                  type="button"
-                  class="px-2 py-1 rounded-md transition"
-                  :class="trendChartType === 'stacked' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
-                  @click="trendChartType = 'stacked'"
-                >
-                  堆
-                </button>
-                <button
-                  type="button"
-                  class="px-2 py-1 rounded-md transition"
-                  :class="trendChartType === 'donut' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
-                  @click="trendChartType = 'donut'"
-                >
-                  环
-                </button>
-              </div>
+            <CardTitle>收支趋势 (近半年)</CardTitle>
+            <div class="flex items-center gap-1 rounded-lg border border-border/60 bg-background/70 p-1 text-xs">
+              <button
+                type="button"
+                class="px-2 py-1 rounded-md transition"
+                :class="trendChartType === 'line' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                @click="trendChartType = 'line'"
+              >
+                线
+              </button>
+              <button
+                type="button"
+                class="px-2 py-1 rounded-md transition"
+                :class="trendChartType === 'stacked' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                @click="trendChartType = 'stacked'"
+              >
+                堆
+              </button>
             </div>
           </div>
         </CardHeader>
@@ -475,180 +596,80 @@ watchEffect(() => {
         </CardContent>
       </Card>
 
-      <!-- Expense Structure Chart -->
-      <Card class="rounded-lg bg-card/60 shadow-[0_18px_40px_-26px_rgba(15,23,42,0.6)] backdrop-blur-sm">
-        <CardHeader class="gap-3">
-          <div class="flex items-center justify-between">
-            <CardTitle class="text-sm font-medium">本月支出构成</CardTitle>
-            <div class="flex items-center gap-2">
-              <div class="flex items-center gap-1 rounded-lg border border-border/60 bg-background/70 p-1 text-xs">
-                <button
-                  type="button"
-                  class="px-2 py-1 rounded-md transition"
-                  :class="categoryChartType === 'line' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
-                  @click="categoryChartType = 'line'"
-                >
-                  线
-                </button>
-                <button
-                  type="button"
-                  class="px-2 py-1 rounded-md transition"
-                  :class="categoryChartType === 'stacked' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
-                  @click="categoryChartType = 'stacked'"
-                >
-                  堆
-                </button>
-                <button
-                  type="button"
-                  class="px-2 py-1 rounded-md transition"
-                  :class="categoryChartType === 'donut' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
-                  @click="categoryChartType = 'donut'"
-                >
-                  环
-                </button>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div class="flex h-[240px] w-full items-center justify-center">
-            <div v-if="!categoryData.length" class="flex flex-col items-center justify-center text-sm text-muted-foreground">
-              <EmptyStateIllustration class="mb-4 w-32 opacity-50" />
-              <span>暂无支出数据</span>
-            </div>
-            <ClientOnly v-else>
-              <Plot
-                :type="categoryChartType"
-                :data="categoryPlotData"
-                :colors="categoryPalette"
-                :legend-items="categoryLegendForPlot"
-              />
-            </ClientOnly>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-      <!-- Recent Transactions -->
-      <Card class="col-span-4 bg-card/50 backdrop-blur-sm">
+      <!-- Top Expenses -->
+      <Card class="bg-card/60 backdrop-blur-sm flex flex-col">
         <CardHeader>
-          <CardTitle>最近交易</CardTitle>
+          <CardTitle>本月大额支出</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div class="space-y-4">
-            <div v-if="recentTransactions.length === 0" class="flex h-32 items-center justify-center text-sm text-muted-foreground">
-              暂无交易记录
-            </div>
+        <CardContent class="flex-1">
+          <div v-if="topExpenses.length" class="space-y-4">
             <div 
-              v-for="tx in recentTransactions" 
-              :key="tx.id" 
+              v-for="tx in topExpenses" 
+              :key="tx.id"
               class="flex items-center justify-between"
             >
-              <div class="flex items-center gap-4">
-                <div class="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background">
-                  <AppIcon 
-                    :name="tx.type === 'expense' ? 'lucide:arrow-up-right' : (tx.type === 'income' ? 'lucide:arrow-down-left' : 'lucide:arrow-right-left')" 
-                    :size="16"
-                    :class="tx.type === 'expense' ? 'text-destructive' : (tx.type === 'income' ? 'text-green-600' : 'text-blue-600')" 
-                  />
+              <div class="flex items-center gap-3">
+                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                  <AppIcon name="lucide:arrow-up-right" :size="14" />
                 </div>
-                <div class="space-y-1">
-                  <p class="text-sm font-medium leading-none">
-                    {{ tx.category || (tx.type === 'transfer' ? '转账' : '无分类') }}
-                  </p>
-                  <p class="text-xs text-muted-foreground">
-                    {{ tx.account?.name }} 
-                    <span v-if="tx.type === 'transfer'">→ {{ tx.to_account?.name }}</span>
-                    · {{ new Date(tx.occurred_at).toLocaleDateString() }}
-                  </p>
+                <div class="flex flex-col">
+                  <span class="text-sm font-medium">{{ tx.category || '无分类' }}</span>
+                  <span class="text-xs text-muted-foreground">{{ new Date(tx.occurred_at).toLocaleDateString() }}</span>
                 </div>
               </div>
-              <div 
-                class="font-medium font-numeric"
-                :class="tx.type === 'expense' ? 'text-foreground' : (tx.type === 'income' ? 'text-green-600' : 'text-blue-600')"
-              >
-                {{ tx.type === 'expense' ? '-' : '+' }}¥{{ Number(tx.amount).toFixed(2) }}
-              </div>
+              <span class="font-medium font-numeric">¥{{ Number(tx.amount).toFixed(2) }}</span>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      <!-- Quick Actions / Snapshot -->
-      <Card class="col-span-3 bg-card/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle>快速操作</CardTitle>
-        </CardHeader>
-        <CardContent class="grid gap-2">
-          <Button as-child variant="outline" class="w-full justify-start h-auto py-3">
-            <NuxtLink to="/transactions" class="flex items-center gap-3">
-              <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <AppIcon name="lucide:arrow-right-left" :size="16" />
-              </div>
-              <div class="flex flex-col items-start text-left">
-                <span class="text-sm font-medium">记一笔</span>
-                <span class="text-xs text-muted-foreground">记录支出、收入或转账</span>
-              </div>
-            </NuxtLink>
-          </Button>
-          
-          <Button as-child variant="outline" class="w-full justify-start h-auto py-3">
-            <NuxtLink to="/investments/snapshots" class="flex items-center gap-3">
-              <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
-                <AppIcon name="lucide:trending-up" :size="16" />
-              </div>
-              <div class="flex flex-col items-start text-left">
-                <span class="text-sm font-medium">录入净值</span>
-                <span class="text-xs text-muted-foreground">更新今日资产快照</span>
-              </div>
-            </NuxtLink>
-          </Button>
-        </CardContent>
-        <CardContent class="pt-0">
-          <div class="mt-2 rounded-xl border border-border/60 bg-background/60 p-4">
-            <div class="flex items-center justify-between">
-              <div class="text-sm font-medium">资产趋势</div>
-              <div class="text-xs text-muted-foreground">近 30 天</div>
-            </div>
-            <div v-if="assetTrendPoints.length" class="mt-3 h-8">
-              <Sparkline :points="assetTrendPoints" class="text-primary" />
-            </div>
-            <div v-else class="mt-3 text-xs text-muted-foreground">
-              暂无净值数据
-            </div>
-          </div>
-          <div class="mt-4 rounded-xl border border-border/60 bg-background/60 p-4">
-            <div class="flex items-center justify-between">
-              <div class="text-sm font-medium">账户构成</div>
-              <div class="text-xs text-muted-foreground">按类型</div>
-            </div>
-            <div v-if="accountBreakdown.length" class="mt-3 space-y-3">
-              <div
-                v-for="item in accountBreakdown"
-                :key="item.type"
-                class="space-y-1"
-              >
-                <div class="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{{ labelForAccountType(item.type) }}</span>
-                  <span class="font-medium text-foreground">¥{{ item.value.toFixed(2) }}</span>
-                </div>
-                <div class="h-2 w-full rounded-full bg-muted/60">
-                  <div
-                    class="h-2 rounded-full bg-primary"
-                    :style="{
-                      width: `${netAssets && netAssets > 0 ? (item.value / netAssets) * 100 : 0}%`
-                    }"
-                  />
-                </div>
-              </div>
-            </div>
-            <div v-else class="mt-3 text-xs text-muted-foreground">
-              暂无账户数据
-            </div>
+          <div v-else class="flex h-full items-center justify-center text-sm text-muted-foreground">
+            暂无支出记录
           </div>
         </CardContent>
       </Card>
     </div>
+
+    <!-- Recent Transactions -->
+    <Card class="bg-card/50 backdrop-blur-sm">
+      <CardHeader>
+        <CardTitle>最近交易</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div class="space-y-4">
+          <div v-if="recentTransactions.length === 0" class="flex h-32 items-center justify-center text-sm text-muted-foreground">
+            暂无交易记录
+          </div>
+          <div 
+            v-for="tx in recentTransactions" 
+            :key="tx.id" 
+            class="flex items-center justify-between"
+          >
+            <div class="flex items-center gap-4">
+              <div class="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background shadow-sm">
+                <AppIcon 
+                  :name="tx.type === 'expense' ? 'lucide:shopping-bag' : (tx.type === 'income' ? 'lucide:wallet' : 'lucide:arrow-right-left')" 
+                  :size="18"
+                  :class="tx.type === 'expense' ? 'text-destructive' : (tx.type === 'income' ? 'text-green-600' : 'text-blue-600')" 
+                />
+              </div>
+              <div class="space-y-1">
+                <p class="text-sm font-medium leading-none">
+                  {{ tx.category || (tx.type === 'transfer' ? '转账' : '无分类') }}
+                </p>
+                <p class="text-xs text-muted-foreground">
+                  {{ tx.account?.name }} 
+                  <span v-if="tx.type === 'transfer'">→ {{ tx.to_account?.name }}</span>
+                  · {{ new Date(tx.occurred_at).toLocaleDateString() }}
+                </p>
+              </div>
+            </div>
+            <div 
+              class="font-medium font-numeric text-base"
+              :class="tx.type === 'expense' ? 'text-foreground' : (tx.type === 'income' ? 'text-green-600' : 'text-blue-600')"
+            >
+              {{ tx.type === 'expense' ? '-' : '+' }}¥{{ Number(tx.amount).toFixed(2) }}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   </div>
 </template>

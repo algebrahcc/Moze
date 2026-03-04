@@ -137,88 +137,89 @@ watch(() => props.budget, (val) => {
   <div class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
     <!-- Summary Cards -->
     <div class="grid gap-4 md:grid-cols-4">
-      <Card class="bg-card/50 backdrop-blur-sm">
+      <Card class="border-border/50 bg-card/60 shadow-lg backdrop-blur-xl transition-transform hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">本月收入</CardTitle>
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/10 text-green-600">
-            <AppIcon name="lucide:trending-up" :size="16" />
+          <CardTitle class="text-sm font-medium text-muted-foreground">本月收入</CardTitle>
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <AppIcon name="lucide:trending-up" :size="20" />
           </div>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold font-numeric">
+          <div class="text-2xl font-bold font-numeric text-foreground">
             ¥{{ monthIncome.toFixed(2) }}
           </div>
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1 font-medium">
             {{ year }}年{{ month }}月
           </p>
         </CardContent>
       </Card>
 
-      <Card class="bg-card/50 backdrop-blur-sm">
+      <Card class="border-border/50 bg-card/60 shadow-lg backdrop-blur-xl transition-transform hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">本月支出</CardTitle>
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-            <AppIcon name="lucide:trending-down" :size="16" />
+          <CardTitle class="text-sm font-medium text-muted-foreground">本月支出</CardTitle>
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+            <AppIcon name="lucide:trending-down" :size="20" />
           </div>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold font-numeric">
+          <div class="text-2xl font-bold font-numeric text-foreground">
             ¥{{ monthExpense.toFixed(2) }}
           </div>
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1 font-medium">
             {{ year }}年{{ month }}月
           </p>
         </CardContent>
       </Card>
 
-      <Card class="bg-card/50 backdrop-blur-sm">
+      <Card class="border-border/50 bg-card/60 shadow-lg backdrop-blur-xl transition-transform hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">本月结余</CardTitle>
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <AppIcon name="lucide:wallet" :size="16" />
+          <CardTitle class="text-sm font-medium text-muted-foreground">本月结余</CardTitle>
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <AppIcon name="lucide:wallet" :size="20" />
           </div>
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold font-numeric" :class="monthNet >= 0 ? 'text-primary' : 'text-destructive'">
             {{ monthNet >= 0 ? '+' : '' }}¥{{ monthNet.toFixed(2) }}
           </div>
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1 font-medium">
             收入 - 支出
           </p>
         </CardContent>
       </Card>
 
-      <Card class="bg-card/50 backdrop-blur-sm">
+      <Card class="border-border/50 bg-card/60 shadow-lg backdrop-blur-xl transition-transform hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">预算执行</CardTitle>
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600">
-            <AppIcon name="lucide:target" :size="16" />
+          <CardTitle class="text-sm font-medium text-muted-foreground">预算执行</CardTitle>
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
+            <AppIcon name="lucide:target" :size="20" />
           </div>
         </CardHeader>
         <CardContent>
           <div class="flex items-center gap-2">
-             <div class="relative flex-1">
+             <div class="relative flex-1 group">
                <input 
                 v-model="budgetInput"
                 type="number" 
                 placeholder="设置预算"
-                class="w-full bg-transparent text-2xl font-bold font-numeric outline-none placeholder:text-muted-foreground/50"
+                class="w-full bg-transparent text-2xl font-bold font-numeric outline-none placeholder:text-muted-foreground/30 transition-colors focus:text-primary"
                 @blur="handleBudgetSave"
                 @keydown.enter="handleBudgetSave"
               />
               <div v-if="budgetLoading" class="absolute right-0 top-1/2 -translate-y-1/2">
                 <AppIcon name="lucide:loader-2" :size="16" class="animate-spin text-muted-foreground" />
               </div>
+              <div class="absolute bottom-0 left-0 h-0.5 w-0 bg-primary transition-all duration-300 group-hover:w-full group-focus-within:w-full" />
              </div>
           </div>
-          <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+          <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-secondary/50">
             <div 
-              class="h-full rounded-full transition-all duration-500" 
+              class="h-full rounded-full transition-all duration-500 shadow-sm" 
               :class="budgetUsagePercent > 100 ? 'bg-destructive' : 'bg-primary'"
               :style="{ width: `${budgetUsagePercent}%` }"
             />
           </div>
-          <p class="text-xs text-muted-foreground mt-1 flex justify-between">
+          <p class="text-xs text-muted-foreground mt-2 flex justify-between font-medium">
             <span>已用 {{ budgetUsagePercent.toFixed(1) }}%</span>
             <span v-if="budget > 0">剩余 ¥{{ (budget - monthExpense).toFixed(2) }}</span>
           </p>
@@ -227,21 +228,21 @@ watch(() => props.budget, (val) => {
     </div>
 
     <!-- Charts -->
-    <div class="grid gap-4 md:grid-cols-2">
+    <div class="grid gap-6 md:grid-cols-2">
       <!-- Monthly Trend -->
-      <Card class="rounded-lg bg-card/60 shadow-[0_18px_40px_-26px_rgba(15,23,42,0.6)] backdrop-blur-sm">
-        <CardHeader class="gap-3">
+      <Card class="overflow-hidden border-border/50 bg-card/60 shadow-xl backdrop-blur-xl">
+        <CardHeader class="border-b border-border/40 pb-4">
           <div class="flex items-center justify-between">
-            <CardTitle class="text-sm font-medium">收支趋势 (年度)</CardTitle>
-            <div class="flex items-center gap-1 rounded-lg border border-border/60 bg-background/70 p-1 text-xs">
-              <button type="button" class="px-2 py-1 rounded-md transition" :class="trendChartType === 'line' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'" @click="trendChartType = 'line'">线</button>
-              <button type="button" class="px-2 py-1 rounded-md transition" :class="trendChartType === 'stacked' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'" @click="trendChartType = 'stacked'">堆</button>
-              <button type="button" class="px-2 py-1 rounded-md transition" :class="trendChartType === 'donut' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'" @click="trendChartType = 'donut'">环</button>
+            <CardTitle class="text-base font-medium">收支趋势 (年度)</CardTitle>
+            <div class="flex items-center gap-1 rounded-lg border border-border/50 bg-muted/30 p-1 text-xs backdrop-blur-md">
+              <button type="button" class="px-2.5 py-1 rounded-md transition-all font-medium" :class="trendChartType === 'line' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="trendChartType = 'line'">线</button>
+              <button type="button" class="px-2.5 py-1 rounded-md transition-all font-medium" :class="trendChartType === 'stacked' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="trendChartType = 'stacked'">堆</button>
+              <button type="button" class="px-2.5 py-1 rounded-md transition-all font-medium" :class="trendChartType === 'donut' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="trendChartType = 'donut'">环</button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div class="h-[240px] w-full">
+        <CardContent class="pt-6">
+          <div class="h-[280px] w-full">
             <ClientOnly>
               <Plot :type="trendChartType" :data="trendPlotData" :colors="trendColors" :legend-items="trendLegendItems" />
             </ClientOnly>
@@ -250,21 +251,21 @@ watch(() => props.budget, (val) => {
       </Card>
 
       <!-- Category Breakdown -->
-      <Card class="rounded-lg bg-card/60 shadow-[0_18px_40px_-26px_rgba(15,23,42,0.6)] backdrop-blur-sm">
-        <CardHeader class="gap-3">
+      <Card class="overflow-hidden border-border/50 bg-card/60 shadow-xl backdrop-blur-xl">
+        <CardHeader class="border-b border-border/40 pb-4">
           <div class="flex items-center justify-between">
-            <CardTitle class="text-sm font-medium">本月支出构成</CardTitle>
-            <div class="flex items-center gap-1 rounded-lg border border-border/60 bg-background/70 p-1 text-xs">
-              <button type="button" class="px-2 py-1 rounded-md transition" :class="categoryChartType === 'line' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'" @click="categoryChartType = 'line'">线</button>
-              <button type="button" class="px-2 py-1 rounded-md transition" :class="categoryChartType === 'stacked' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'" @click="categoryChartType = 'stacked'">堆</button>
-              <button type="button" class="px-2 py-1 rounded-md transition" :class="categoryChartType === 'donut' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'" @click="categoryChartType = 'donut'">环</button>
+            <CardTitle class="text-base font-medium">本月支出构成</CardTitle>
+            <div class="flex items-center gap-1 rounded-lg border border-border/50 bg-muted/30 p-1 text-xs backdrop-blur-md">
+              <button type="button" class="px-2.5 py-1 rounded-md transition-all font-medium" :class="categoryChartType === 'line' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="categoryChartType = 'line'">线</button>
+              <button type="button" class="px-2.5 py-1 rounded-md transition-all font-medium" :class="categoryChartType === 'stacked' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="categoryChartType = 'stacked'">堆</button>
+              <button type="button" class="px-2.5 py-1 rounded-md transition-all font-medium" :class="categoryChartType === 'donut' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="categoryChartType = 'donut'">环</button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div class="flex h-[240px] w-full items-center justify-center">
+        <CardContent class="pt-6">
+          <div class="flex h-[280px] w-full items-center justify-center">
             <div v-if="!categoryData.length" class="flex flex-col items-center justify-center text-sm text-muted-foreground">
-              <EmptyStateIllustration class="mb-4 w-28 opacity-50" />
+              <EmptyStateIllustration class="mb-4 w-32 opacity-50 grayscale" />
               <span>暂无支出数据</span>
             </div>
             <ClientOnly v-else>
@@ -276,45 +277,60 @@ watch(() => props.budget, (val) => {
     </div>
 
     <!-- Transaction Details Table -->
-    <Card class="rounded-lg bg-card/60 shadow-sm backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle class="text-sm font-medium">月度明细</CardTitle>
+    <Card class="overflow-hidden border-border/50 bg-card/60 shadow-xl backdrop-blur-xl">
+      <CardHeader class="border-b border-border/40 pb-4">
+        <CardTitle class="text-base font-medium">月度明细</CardTitle>
       </CardHeader>
       <CardContent class="p-0">
         <div class="relative w-full overflow-auto">
           <table class="w-full caption-bottom text-sm">
-            <thead class="[&_tr]:border-b">
-              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">日期</th>
-                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">分类</th>
-                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">备注</th>
-                <th class="h-12 px-4 text-right align-middle font-medium text-muted-foreground">金额</th>
+            <thead class="bg-muted/30 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
+              <tr>
+                <th class="h-12 px-6 text-left align-middle font-medium">日期</th>
+                <th class="h-12 px-6 text-left align-middle font-medium">分类</th>
+                <th class="h-12 px-6 text-left align-middle font-medium">备注</th>
+                <th class="h-12 px-6 text-right align-middle font-medium">金额</th>
               </tr>
             </thead>
-            <tbody class="[&_tr:last-child]:border-0">
+            <tbody class="divide-y divide-border/30">
               <tr v-if="!monthTx.length">
-                <td colspan="4" class="h-24 text-center text-muted-foreground">暂无数据</td>
-              </tr>
-              <tr v-for="tx in monthTx" :key="tx.id" class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                <td class="p-4 align-middle tabular-nums">{{ new Date(tx.occurred_at).toLocaleDateString() }}</td>
-                <td class="p-4 align-middle">
-                  <div class="flex items-center gap-2">
-                    <div class="flex h-6 w-6 items-center justify-center rounded bg-muted">
-                      <AppIcon 
-                        :name="tx.type === 'expense' ? 'lucide:arrow-up-right' : (tx.type === 'income' ? 'lucide:arrow-down-left' : 'lucide:arrow-right-left')" 
-                        :size="12"
-                        :class="tx.type === 'expense' ? 'text-destructive' : (tx.type === 'income' ? 'text-green-600' : 'text-blue-600')" 
-                      />
-                    </div>
-                    <span>{{ tx.category || '无分类' }}</span>
+                <td colspan="4" class="h-32 text-center text-muted-foreground">
+                  <div class="flex flex-col items-center justify-center gap-2">
+                    <EmptyStateIllustration class="w-24 opacity-30 grayscale" />
+                    <span class="text-xs">本月暂无交易记录</span>
                   </div>
                 </td>
-                <td class="p-4 align-middle text-muted-foreground">{{ tx.note || '-' }}</td>
+              </tr>
+              <tr v-for="tx in monthTx" :key="tx.id" class="transition-colors hover:bg-muted/40">
+                <td class="p-4 px-6 align-middle tabular-nums text-muted-foreground">{{ new Date(tx.occurred_at).toLocaleDateString() }}</td>
+                <td class="p-4 px-6 align-middle">
+                  <div class="flex items-center gap-3">
+                    <div 
+                      class="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+                      :class="{
+                        'bg-destructive/10 text-destructive': tx.type === 'expense',
+                        'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400': tx.type === 'income',
+                        'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400': tx.type === 'transfer'
+                      }"
+                    >
+                      <AppIcon 
+                        :name="tx.type === 'expense' ? 'lucide:arrow-up-right' : (tx.type === 'income' ? 'lucide:arrow-down-left' : 'lucide:arrow-right-left')" 
+                        :size="16"
+                      />
+                    </div>
+                    <span class="font-medium">{{ tx.category || '无分类' }}</span>
+                  </div>
+                </td>
+                <td class="p-4 px-6 align-middle text-muted-foreground max-w-[200px] truncate">{{ tx.note || '-' }}</td>
                 <td 
-                  class="p-4 align-middle text-right font-medium tabular-nums font-numeric"
-                  :class="tx.type === 'income' ? 'text-green-600' : (tx.type === 'expense' ? 'text-foreground' : 'text-blue-600')"
+                  class="p-4 px-6 align-middle text-right font-bold tabular-nums font-numeric text-base"
+                  :class="{
+                    'text-foreground': tx.type === 'expense',
+                    'text-emerald-600 dark:text-emerald-400': tx.type === 'income',
+                    'text-blue-600 dark:text-blue-400': tx.type === 'transfer'
+                  }"
                 >
-                  {{ tx.type === 'expense' ? '-' : '+' }}¥{{ Number(tx.amount).toFixed(2) }}
+                  {{ tx.type === 'expense' ? '-' : (tx.type === 'income' ? '+' : '') }}¥{{ Number(tx.amount).toFixed(2) }}
                 </td>
               </tr>
             </tbody>

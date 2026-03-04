@@ -191,20 +191,20 @@ watch([selectedYear, user], () => {
     <div class="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
       <div>
         <div class="flex items-center gap-2">
-          <AppIcon name="lucide:line-chart" :size="18" class="text-muted-foreground" />
-          <h1 class="text-2xl font-semibold tracking-tight">
+          <AppIcon name="lucide:line-chart" :size="24" class="text-primary" />
+          <h1 class="text-3xl font-bold tracking-tight text-foreground/90">
             报表中心
           </h1>
         </div>
-        <p class="mt-2 text-sm text-muted-foreground">
+        <p class="mt-2 text-base text-muted-foreground">
           全方位的财务数据分析与预算管理
         </p>
       </div>
-      <div class="flex items-center gap-3">
-        <div class="flex items-center rounded-lg border border-input bg-background/50 p-1">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center rounded-xl border border-border/50 bg-muted/30 p-1 backdrop-blur-md">
           <button
             type="button"
-            class="rounded-md px-3 py-1.5 text-sm font-medium transition-all"
+            class="rounded-lg px-4 py-2 text-sm font-medium transition-all"
             :class="currentTab === 'monthly' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
             @click="currentTab = 'monthly'"
           >
@@ -212,7 +212,7 @@ watch([selectedYear, user], () => {
           </button>
           <button
             type="button"
-            class="rounded-md px-3 py-1.5 text-sm font-medium transition-all"
+            class="rounded-lg px-4 py-2 text-sm font-medium transition-all"
             :class="currentTab === 'annual' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
             @click="currentTab = 'annual'"
           >
@@ -220,34 +220,45 @@ watch([selectedYear, user], () => {
           </button>
         </div>
         
-        <div class="h-6 w-px bg-border/60 mx-1" />
+        <div class="h-8 w-px bg-border/50 mx-1 hidden md:block" />
 
-        <select
-          v-model="selectedYear"
-          class="h-10 rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
-          <option v-for="y in yearOptions" :key="y" :value="y">
-            {{ y }}年
-          </option>
-        </select>
-        <select
-          v-if="currentTab === 'monthly'"
-          v-model="selectedMonth"
-          class="h-10 rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 animate-in fade-in slide-in-from-left-2 duration-300"
-        >
-          <option v-for="m in monthOptions" :key="m" :value="m">
-            {{ m }}月
-          </option>
-        </select>
+        <div class="relative">
+          <select
+            v-model="selectedYear"
+            class="h-10 appearance-none rounded-xl border border-border/50 bg-background/50 pl-4 pr-10 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary backdrop-blur-md"
+          >
+            <option v-for="y in yearOptions" :key="y" :value="y">
+              {{ y }}年
+            </option>
+          </select>
+          <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        </div>
+
+        <div v-if="currentTab === 'monthly'" class="relative animate-in fade-in slide-in-from-left-2 duration-300">
+          <select
+            v-model="selectedMonth"
+            class="h-10 appearance-none rounded-xl border border-border/50 bg-background/50 pl-4 pr-10 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary backdrop-blur-md"
+          >
+            <option v-for="m in monthOptions" :key="m" :value="m">
+              {{ m }}月
+            </option>
+          </select>
+          <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        </div>
       </div>
     </div>
 
-    <div v-if="errorMessage" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-      {{ errorMessage }}
+    <div v-if="errorMessage" class="rounded-2xl border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive">
+      <div class="flex items-center gap-2 font-semibold">
+        <AppIcon name="lucide:alert-circle" :size="16" />
+        加载失败
+      </div>
+      <p class="mt-1 opacity-90">{{ errorMessage }}</p>
     </div>
 
-    <div v-else-if="loading" class="rounded-xl border border-border/70 bg-background/40 p-8 text-sm text-muted-foreground">
-      加载中...
+    <div v-else-if="loading" class="flex flex-col items-center justify-center py-16 text-muted-foreground">
+      <AppIcon name="lucide:loader-2" :size="32" class="animate-spin opacity-50" />
+      <p class="mt-4 text-sm">正在加载报表数据...</p>
     </div>
 
     <div v-else>

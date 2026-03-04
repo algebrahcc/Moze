@@ -16,16 +16,16 @@ async function signOut() {
     <div class="pointer-events-none absolute inset-0 -z-20 bg-[linear-gradient(to_right,_hsl(var(--foreground)/0.04)_1px,_transparent_1px),_linear-gradient(to_bottom,_hsl(var(--foreground)/0.04)_1px,_transparent_1px)] bg-[size:100px_100px] opacity-30" />
     <div class="pointer-events-none absolute inset-0 -z-10 bg-noise opacity-[0.08] mix-blend-soft-light" />
 
-    <header class="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+    <header class="sticky top-0 z-50 border-b border-border/50 bg-background/60 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
       <div class="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
-        <NuxtLink to="/dashboard" class="flex items-center gap-2 transition-opacity hover:opacity-80">
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-            <AppIcon name="lucide:layout-dashboard" :size="18" class="text-primary" />
+        <NuxtLink to="/dashboard" class="flex items-center gap-2 transition-transform hover:scale-105 active:scale-95">
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/20">
+            <AppIcon name="lucide:wallet" :size="18" />
           </div>
-          <span class="text-sm font-semibold tracking-tight">Moze / 默资记账</span>
+          <span class="text-base font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">Moze</span>
         </NuxtLink>
         
-        <nav class="hidden md:flex items-center gap-1">
+        <nav class="hidden md:flex items-center gap-1 ml-2">
           <NuxtLink 
             v-for="item in [
               { name: '总览', to: '/dashboard', icon: 'lucide:layout-grid' },
@@ -33,31 +33,37 @@ async function signOut() {
               { name: '收支', to: '/transactions', icon: 'lucide:arrow-right-left' },
               { name: '报表', to: '/reports', icon: 'lucide:line-chart' },
               { name: '净值', to: '/investments/snapshots', icon: 'lucide:trending-up' },
-              { name: '分类', to: '/categories', icon: 'lucide:receipt' }
+              { name: '分类', to: '/categories', icon: 'lucide:layers' }
             ]" 
             :key="item.to"
             :to="item.to" 
-            class="group inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-muted-foreground transition-all hover:bg-secondary/50 hover:text-foreground active:scale-95 data-[active=true]:bg-secondary data-[active=true]:text-foreground"
-            active-class="bg-secondary text-foreground shadow-sm ring-1 ring-border/50"
+            class="group relative flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:text-foreground hover:bg-muted/50"
+            active-class="!text-primary bg-primary/10 shadow-sm"
           >
-            <AppIcon :name="item.icon" :size="14" class="opacity-70 group-hover:opacity-100 transition-opacity" />
+            <AppIcon :name="item.icon" :size="16" class="transition-transform group-hover:scale-110 group-active:scale-95" />
             {{ item.name }}
           </NuxtLink>
         </nav>
 
-        <div class="ml-auto flex items-center gap-3">
-          <span v-if="user?.email" class="hidden text-xs font-medium text-muted-foreground md:inline-block">
-            {{ user.email }}
-          </span>
+        <div class="ml-auto flex items-center gap-4">
+          <div v-if="user?.email" class="hidden md:flex flex-col items-end">
+            <span class="text-xs font-medium text-foreground">
+              {{ user.email.split('@')[0] }}
+            </span>
+            <span class="text-[10px] text-muted-foreground uppercase tracking-wider">
+              Pro Plan
+            </span>
+          </div>
+          <div class="h-8 w-px bg-border/50 hidden md:block" />
           <Button 
             v-if="user" 
             variant="ghost" 
-            size="sm"
-            class="h-8 w-8 rounded-full p-0 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            size="icon"
+            class="h-9 w-9 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
             @click="signOut"
+            title="退出登录"
           >
-            <AppIcon name="lucide:log-out" :size="16" />
-            <span class="sr-only">退出</span>
+            <AppIcon name="lucide:log-out" :size="18" />
           </Button>
         </div>
       </div>

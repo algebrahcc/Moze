@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import AppIcon from '@/components/AppIcon.vue'
 import EmptyStateIllustration from '@/components/illustrations/EmptyStateIllustration.vue'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 type TxType = 'expense' | 'income' | 'transfer'
 type TxView = 'all' | TxType
@@ -688,316 +690,344 @@ watch([editType, editAccountId, accounts], () => {
     <div class="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
       <div>
         <div class="flex items-center gap-2">
-          <AppIcon name="lucide:arrow-right-left" :size="18" class="text-muted-foreground" />
-          <h1 class="text-2xl font-semibold tracking-tight">
-            收支
+          <AppIcon name="lucide:arrow-right-left" :size="24" class="text-primary" />
+          <h1 class="text-3xl font-bold tracking-tight text-foreground/90">
+            收支明细
           </h1>
         </div>
-        <p class="mt-2 text-sm text-muted-foreground">
-          支出/收入/转账
+        <p class="mt-2 text-base text-muted-foreground">
+          查看和管理您的所有支出、收入及转账记录。
         </p>
       </div>
-      <Button @click="createOpen = true">
+      <Button size="lg" class="shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95" @click="createOpen = true">
         <span class="inline-flex items-center gap-2">
-          <AppIcon name="lucide:plus" :size="16" />
+          <AppIcon name="lucide:plus" :size="18" />
           记一笔
         </span>
       </Button>
     </div>
 
-    <Card>
-      <CardHeader class="text-sm font-medium">
-        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <span>交易列表</span>
-          <div class="flex flex-wrap items-center gap-2">
-            <div class="flex items-center gap-1 rounded-lg border border-border/60 bg-background/60 p-1 text-xs">
+    <Card class="border-border/50 bg-card/60 shadow-xl backdrop-blur-xl">
+      <CardHeader class="pb-4">
+        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <CardTitle class="text-lg font-medium text-foreground/80">交易列表</CardTitle>
+          <div class="flex flex-wrap items-center gap-3">
+            <!-- View Mode Toggle -->
+            <div class="flex items-center rounded-xl border border-border/50 bg-background/50 p-1 shadow-sm backdrop-blur-md">
               <button
                 type="button"
-                class="px-2 py-1 rounded-md transition"
-                :class="viewMode === 'all' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+                :class="viewMode === 'all' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
                 @click="viewMode = 'all'"
               >
                 全部
               </button>
               <button
                 type="button"
-                class="px-2 py-1 rounded-md transition"
-                :class="viewMode === 'expense' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+                :class="viewMode === 'expense' ? 'bg-destructive text-destructive-foreground shadow-md' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
                 @click="viewMode = 'expense'"
               >
                 支出
               </button>
               <button
                 type="button"
-                class="px-2 py-1 rounded-md transition"
-                :class="viewMode === 'income' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+                :class="viewMode === 'income' ? 'bg-emerald-600 text-white shadow-md' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
                 @click="viewMode = 'income'"
               >
                 收入
               </button>
               <button
                 type="button"
-                class="px-2 py-1 rounded-md transition"
-                :class="viewMode === 'transfer' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+                :class="viewMode === 'transfer' ? 'bg-blue-600 text-white shadow-md' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
                 @click="viewMode = 'transfer'"
               >
                 转账
               </button>
             </div>
-            <div class="flex items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-3 py-1.5 text-xs text-muted-foreground">
-              <span class="hidden sm:inline">账户</span>
-              <select
-                v-model="filterAccountId"
-                class="h-8 rounded-md border border-border/60 bg-background px-2 text-xs text-foreground shadow-sm outline-none"
-              >
-                <option value="">全部账户</option>
-                <option v-for="a in accounts" :key="a.id" :value="a.id">
-                  {{ a.name }} · {{ a.currency }}
-                </option>
-              </select>
-            </div>
-            <div class="flex items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-3 py-1.5 text-xs text-muted-foreground">
-              <span class="hidden sm:inline">标签</span>
-              <select
-                v-model="filterTagId"
-                class="h-8 rounded-md border border-border/60 bg-background px-2 text-xs text-foreground shadow-sm outline-none"
-              >
-                <option value="">全部标签</option>
-                <option v-for="t in tags" :key="t.id" :value="t.id">
-                  {{ t.name }}
-                </option>
-              </select>
+
+            <!-- Filters -->
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <select
+                  v-model="filterAccountId"
+                  class="h-9 appearance-none rounded-xl border border-border/50 bg-background/50 pl-3 pr-8 text-sm text-foreground shadow-sm backdrop-blur-md transition-colors hover:bg-background/80 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">全部账户</option>
+                  <option v-for="a in accounts" :key="a.id" :value="a.id">
+                    {{ a.name }}
+                  </option>
+                </select>
+                <AppIcon name="lucide:chevron-down" :size="14" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
+
+              <div class="relative">
+                <select
+                  v-model="filterTagId"
+                  class="h-9 appearance-none rounded-xl border border-border/50 bg-background/50 pl-3 pr-8 text-sm text-foreground shadow-sm backdrop-blur-md transition-colors hover:bg-background/80 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">全部标签</option>
+                  <option v-for="t in tags" :key="t.id" :value="t.id">
+                    {{ t.name }}
+                  </option>
+                </select>
+                <AppIcon name="lucide:chevron-down" :size="14" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
             </div>
           </div>
         </div>
       </CardHeader>
       <CardContent>
-        <div v-if="!user" class="rounded-xl border border-dashed border-border/70 bg-background/40 p-8 text-sm text-muted-foreground">
-          请先登录后查看流水。
+        <div v-if="!user" class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/50 bg-muted/30 py-16 text-center">
+          <AppIcon name="lucide:lock" :size="48" class="mb-4 text-muted-foreground/50" />
+          <h3 class="text-lg font-medium">请先登录</h3>
+          <p class="text-sm text-muted-foreground">登录后即可查看您的交易流水</p>
         </div>
 
-        <div v-else-if="errorMessage" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          加载失败：{{ errorMessage }}
+        <div v-else-if="errorMessage" class="rounded-2xl border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive">
+          <div class="flex items-center gap-2 font-semibold">
+            <AppIcon name="lucide:alert-circle" :size="16" />
+            加载失败
+          </div>
+          <p class="mt-1 opacity-90">{{ errorMessage }}</p>
         </div>
 
-        <div v-else-if="loading" class="rounded-xl border border-border/70 bg-background/40 p-8 text-sm text-muted-foreground">
-          加载中...
+        <div v-else-if="loading" class="flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <AppIcon name="lucide:loader-2" :size="32" class="animate-spin opacity-50" />
+          <p class="mt-4 text-sm">正在加载交易记录...</p>
         </div>
 
-    <div v-else>
-       <div v-if="!filteredTxs.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/5 py-12 text-center">
-         <EmptyStateIllustration class="mb-6 w-48 opacity-50" />
-         <h3 class="text-lg font-semibold">
-           {{ viewMode === 'all' ? '暂无收支记录' : '暂无该类型记录' }}
-         </h3>
-         <p class="mt-2 text-sm text-muted-foreground max-w-sm">
-           {{ viewMode === 'all' ? '你还没有记录任何交易。点击右上角“记一笔”开始。' : '切换到全部可查看其他交易。' }}
-         </p>
-       </div>
+        <div v-else>
+          <div v-if="!filteredTxs.length" class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/50 bg-muted/30 py-16 text-center">
+            <EmptyStateIllustration class="mb-6 w-48 opacity-50 grayscale" />
+            <h3 class="text-lg font-semibold text-foreground/80">
+              {{ viewMode === 'all' ? '暂无收支记录' : '暂无该类型记录' }}
+            </h3>
+            <p class="mt-2 text-sm text-muted-foreground max-w-sm">
+              {{ viewMode === 'all' ? '你还没有记录任何交易。点击右上角“记一笔”开始。' : '切换到全部可查看其他交易。' }}
+            </p>
+          </div>
 
-       <Card v-else class="overflow-hidden">
-         <div class="overflow-x-auto">
-           <table class="w-full text-sm text-left">
-             <thead class="bg-muted/50 text-xs uppercase text-muted-foreground">
-               <tr v-if="viewMode === 'transfer'">
-                 <th class="px-6 py-3 font-medium tracking-wider">转出账户</th>
-                 <th class="px-6 py-3 font-medium tracking-wider">转入账户</th>
-                 <th class="px-6 py-3 font-medium tracking-wider text-right">金额</th>
-                 <th class="px-6 py-3 font-medium tracking-wider text-right">时间</th>
-                 <th class="px-6 py-3 font-medium tracking-wider text-right">操作</th>
-               </tr>
-               <tr v-else>
-                 <th class="px-6 py-3 font-medium tracking-wider">类型/分类</th>
-                 <th class="px-6 py-3 font-medium tracking-wider">账户</th>
-                 <th class="px-6 py-3 font-medium tracking-wider text-right">金额</th>
-                 <th class="px-6 py-3 font-medium tracking-wider text-right">时间</th>
-                 <th class="px-6 py-3 font-medium tracking-wider text-right">操作</th>
-               </tr>
-             </thead>
-             <tbody class="divide-y divide-border/50 bg-card">
-              <tr v-for="t in filteredTxs" :key="t.id" class="group transition-colors hover:bg-muted/50">
-                <template v-if="viewMode === 'transfer'">
-                  <td class="px-6 py-4">
-                    <div class="flex items-center gap-3">
-                      <div class="flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 bg-background text-blue-600 transition-colors group-hover:border-border">
-                        <AppIcon name="lucide:arrow-up-right" :size="16" />
-                      </div>
-                      <div class="flex flex-col">
-                        <span class="font-medium text-foreground">{{ t.account?.name || '—' }}</span>
-                        <span class="text-xs text-muted-foreground">{{ t.account?.currency || t.currency }}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="px-6 py-4">
-                    <div class="flex items-center gap-3">
-                      <div class="flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 bg-background text-green-600 transition-colors group-hover:border-border">
-                        <AppIcon name="lucide:arrow-down-left" :size="16" />
-                      </div>
-                      <div class="flex flex-col">
-                        <span class="font-medium text-foreground">{{ t.to_account?.name || '—' }}</span>
-                        <span class="text-xs text-muted-foreground">{{ t.to_account?.currency || t.currency }}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="px-6 py-4 text-right">
-                    <span class="font-medium font-numeric tabular-nums text-blue-600">
-                      {{ Number(t.amount).toFixed(2) }}
-                      <span class="text-xs text-muted-foreground font-normal ml-0.5">{{ t.currency }}</span>
-                    </span>
-                  </td>
-                  <td class="px-6 py-4 text-right text-muted-foreground tabular-nums">
-                    {{ new Date(t.occurred_at).toLocaleDateString() }}
-                  </td>
-                  <td class="px-6 py-4 text-right">
-                    <div class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Button variant="ghost" size="icon" class="h-7 w-7" @click="openEdit(t)">
-                        <AppIcon name="lucide:pencil" :size="14" />
-                      </Button>
-                      <Button variant="ghost" size="icon" class="h-7 w-7 text-destructive hover:text-destructive" @click="requestDelete(t)">
-                        <AppIcon name="lucide:trash" :size="14" />
-                      </Button>
-                    </div>
-                  </td>
-                </template>
-                <template v-else>
-                 <td class="px-6 py-4">
-                   <div class="flex items-center gap-3">
-                     <div 
-                       class="flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 bg-background transition-colors group-hover:border-border"
-                       :class="{
-                         'text-destructive': t.type === 'expense',
-                         'text-green-600': t.type === 'income',
-                         'text-blue-600': t.type === 'transfer'
-                       }"
-                     >
-                       <AppIcon :name="iconForTxType(t.type)" :size="16" />
-                     </div>
-                     <div class="flex flex-col">
-                       <span class="font-medium text-foreground">
-                        {{ t.category || categoryLabel(t.category_id) || (t.type === 'transfer' ? '转账' : '无分类') }}
-                       </span>
-                       <span v-if="t.note" class="text-xs text-muted-foreground truncate max-w-[150px]">
-                         {{ t.note }}
-                       </span>
-                      <div v-if="t.transaction_tags?.length" class="mt-1 flex flex-wrap gap-1">
-                        <span
-                          v-for="tag in t.transaction_tags"
-                          :key="tag.tag_id"
-                          class="rounded-full border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground"
-                        >
-                          {{ tag.tags?.name || '标签' }}
+          <div v-else class="rounded-2xl border border-border/40 bg-background/40 overflow-hidden backdrop-blur-sm">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm text-left">
+                <thead class="bg-muted/30 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
+                  <tr v-if="viewMode === 'transfer'">
+                    <th class="px-6 py-4">转出账户</th>
+                    <th class="px-6 py-4">转入账户</th>
+                    <th class="px-6 py-4 text-right">金额</th>
+                    <th class="px-6 py-4 text-right">时间</th>
+                    <th class="px-6 py-4 text-right w-[100px]">操作</th>
+                  </tr>
+                  <tr v-else>
+                    <th class="px-6 py-4">分类 / 备注</th>
+                    <th class="px-6 py-4">账户</th>
+                    <th class="px-6 py-4 text-right">金额</th>
+                    <th class="px-6 py-4 text-right">时间</th>
+                    <th class="px-6 py-4 text-right w-[100px]">操作</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border/30">
+                  <tr v-for="t in filteredTxs" :key="t.id" class="group transition-colors hover:bg-muted/40">
+                    <template v-if="viewMode === 'transfer'">
+                      <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                            <AppIcon name="lucide:arrow-up-right" :size="18" />
+                          </div>
+                          <div class="flex flex-col">
+                            <span class="font-medium text-foreground">{{ t.account?.name || '—' }}</span>
+                            <span class="text-xs text-muted-foreground">{{ t.account?.currency || t.currency }}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                            <AppIcon name="lucide:arrow-down-left" :size="18" />
+                          </div>
+                          <div class="flex flex-col">
+                            <span class="font-medium text-foreground">{{ t.to_account?.name || '—' }}</span>
+                            <span class="text-xs text-muted-foreground">{{ t.to_account?.currency || t.currency }}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-6 py-4 text-right">
+                        <span class="text-base font-bold font-numeric tabular-nums text-foreground">
+                          {{ Number(t.amount).toFixed(2) }}
+                          <span class="text-xs font-normal text-muted-foreground ml-0.5">{{ t.currency }}</span>
                         </span>
-                      </div>
-                     </div>
-                   </div>
-                 </td>
-                 <td class="px-6 py-4">
-                   <div class="flex flex-col text-xs text-muted-foreground">
-                     <span class="font-medium text-foreground">{{ t.account?.name }}</span>
-                     <span v-if="t.type === 'transfer'" class="flex items-center gap-1 mt-0.5">
-                       <AppIcon name="lucide:arrow-right" :size="10" />
-                       {{ t.to_account?.name }}
-                     </span>
-                   </div>
-                 </td>
-                 <td class="px-6 py-4 text-right">
-                   <span 
-                     class="font-medium font-numeric tabular-nums"
-                     :class="{
-                       'text-foreground': t.type === 'expense',
-                       'text-green-600': t.type === 'income',
-                       'text-blue-600': t.type === 'transfer'
-                     }"
-                   >
-                     {{ t.type === 'expense' ? '-' : (t.type === 'income' ? '+' : '') }}
-                     {{ Number(t.amount).toFixed(2) }}
-                     <span class="text-xs text-muted-foreground font-normal ml-0.5">{{ t.currency }}</span>
-                   </span>
-                 </td>
-                 <td class="px-6 py-4 text-right text-muted-foreground tabular-nums">
-                   {{ new Date(t.occurred_at).toLocaleDateString() }}
-                 </td>
-                <td class="px-6 py-4 text-right">
-                  <div class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button variant="ghost" size="icon" class="h-7 w-7" @click="openEdit(t)">
-                      <AppIcon name="lucide:pencil" :size="14" />
-                    </Button>
-                    <Button variant="ghost" size="icon" class="h-7 w-7 text-destructive hover:text-destructive" @click="requestDelete(t)">
-                      <AppIcon name="lucide:trash" :size="14" />
-                    </Button>
-                  </div>
-                </td>
-                </template>
-               </tr>
-             </tbody>
-           </table>
-         </div>
-       </Card>
-    </div>
+                      </td>
+                      <td class="px-6 py-4 text-right text-muted-foreground tabular-nums">
+                        {{ new Date(t.occurred_at).toLocaleDateString() }}
+                      </td>
+                      <td class="px-6 py-4 text-right">
+                        <div class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          <Button variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground hover:text-primary" @click="openEdit(t)">
+                            <AppIcon name="lucide:pencil" :size="15" />
+                          </Button>
+                          <Button variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground hover:text-destructive" @click="requestDelete(t)">
+                            <AppIcon name="lucide:trash" :size="15" />
+                          </Button>
+                        </div>
+                      </td>
+                    </template>
+                    <template v-else>
+                      <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                          <div 
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors"
+                            :class="{
+                              'bg-destructive/10 text-destructive': t.type === 'expense',
+                              'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400': t.type === 'income',
+                              'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400': t.type === 'transfer'
+                            }"
+                          >
+                            <AppIcon :name="iconForTxType(t.type)" :size="20" />
+                          </div>
+                          <div class="flex flex-col min-w-0">
+                            <span class="font-medium text-foreground truncate">
+                              {{ t.category || categoryLabel(t.category_id) || (t.type === 'transfer' ? '转账' : '无分类') }}
+                            </span>
+                            <span v-if="t.note" class="text-xs text-muted-foreground truncate max-w-[180px]">
+                              {{ t.note }}
+                            </span>
+                            <div v-if="t.transaction_tags?.length" class="mt-1 flex flex-wrap gap-1">
+                              <span
+                                v-for="tag in t.transaction_tags"
+                                :key="tag.tag_id"
+                                class="inline-flex items-center rounded-md border border-border/50 bg-background/50 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                              >
+                                {{ tag.tags?.name || '标签' }}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-6 py-4">
+                        <div class="flex flex-col text-sm">
+                          <span class="font-medium text-foreground">{{ t.account?.name }}</span>
+                          <span class="text-xs text-muted-foreground">{{ t.account?.currency }}</span>
+                        </div>
+                      </td>
+                      <td class="px-6 py-4 text-right">
+                        <span 
+                          class="text-base font-bold font-numeric tabular-nums"
+                          :class="{
+                            'text-foreground': t.type === 'expense',
+                            'text-emerald-600 dark:text-emerald-400': t.type === 'income',
+                            'text-blue-600 dark:text-blue-400': t.type === 'transfer'
+                          }"
+                        >
+                          {{ t.type === 'expense' ? '-' : (t.type === 'income' ? '+' : '') }}
+                          {{ Number(t.amount).toFixed(2) }}
+                          <span class="text-xs font-normal text-muted-foreground ml-0.5">{{ t.currency }}</span>
+                        </span>
+                      </td>
+                      <td class="px-6 py-4 text-right text-muted-foreground tabular-nums">
+                        {{ new Date(t.occurred_at).toLocaleDateString() }}
+                      </td>
+                      <td class="px-6 py-4 text-right">
+                        <div class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          <Button variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground hover:text-primary" @click="openEdit(t)">
+                            <AppIcon name="lucide:pencil" :size="15" />
+                          </Button>
+                          <Button variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground hover:text-destructive" @click="requestDelete(t)">
+                            <AppIcon name="lucide:trash" :size="15" />
+                          </Button>
+                        </div>
+                      </td>
+                    </template>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
 
     <div
       v-if="createOpen"
-      class="fixed inset-0 z-50 flex items-end justify-center bg-background/40 p-4 backdrop-blur-sm md:items-center"
+      class="fixed inset-0 z-50 flex items-end justify-center bg-background/60 p-4 backdrop-blur-sm md:items-center"
       @click.self="createOpen = false"
     >
-      <div class="w-full max-w-xl rounded-3xl border border-border/70 bg-card/95 p-6 shadow-[0_46px_110px_-60px_rgba(8,12,20,0.6)] backdrop-blur md:p-8">
+      <div class="w-full max-w-xl rounded-3xl border border-border/50 bg-card/90 p-6 shadow-2xl backdrop-blur-xl md:p-8 animate-in fade-in zoom-in-95 duration-200">
         <div class="mb-6 flex items-start justify-between gap-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.28em] text-muted-foreground">
+            <div class="text-xs font-medium uppercase tracking-wider text-primary">
               新建
             </div>
-            <div class="mt-2 text-2xl font-semibold tracking-tight">
+            <div class="mt-1 text-2xl font-bold tracking-tight text-foreground">
               记一笔
             </div>
           </div>
           <button
             type="button"
-            class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-background/70 text-muted-foreground hover:text-foreground"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-muted/50 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             @click="createOpen = false"
           >
             <AppIcon name="lucide:x" :size="18" />
           </button>
         </div>
 
-        <div v-if="accountsError" class="mb-5 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+        <div v-if="accountsError" class="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
           读取账户失败：{{ accountsError }}
         </div>
 
-        <div v-else-if="!accounts.length" class="mb-5 rounded-xl border border-dashed border-border/70 bg-background/40 p-4 text-sm text-muted-foreground">
+        <div v-else-if="!accounts.length" class="mb-5 rounded-xl border border-dashed border-border/50 bg-muted/30 p-4 text-sm text-muted-foreground text-center">
           还没有可用账户。请先去“账户”创建一个现金/信用/股票账户。
         </div>
 
-        <form class="space-y-5" @submit.prevent="createTransaction">
-          <div class="grid gap-4 md:grid-cols-2">
+        <form class="space-y-6" @submit.prevent="createTransaction">
+          <div class="grid gap-6 md:grid-cols-2">
             <div class="space-y-2">
-              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 类型
               </label>
-              <select
-                v-model="txType"
-                class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="expense">
-                  支出
-                </option>
-                <option value="income">
-                  收入
-                </option>
-                <option value="transfer">
-                  转账
-                </option>
-              </select>
+              <div class="relative">
+                <select
+                  v-model="txType"
+                  class="h-11 w-full appearance-none rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
+                >
+                  <option value="expense">支出</option>
+                  <option value="income">收入</option>
+                  <option value="transfer">转账</option>
+                </select>
+                <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
             </div>
 
             <div class="space-y-2">
-              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {{ txType === 'transfer' ? '转出账户' : '账户' }}
               </label>
+              <div class="relative">
+                <select
+                  v-model="accountId"
+                  class="h-11 w-full appearance-none rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
+                  :disabled="!accounts.length"
+                  required
+                >
+                  <option v-for="a in accounts" :key="a.id" :value="a.id">
+                    {{ a.name }} · {{ a.currency }}
+                  </option>
+                </select>
+                <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+          </div>
+
+          <div v-if="txType === 'transfer'" class="space-y-2">
+            <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              转入账户
+            </label>
+            <div class="relative">
               <select
-                v-model="accountId"
-                class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                v-model="toAccountId"
+                class="h-11 w-full appearance-none rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
                 :disabled="!accounts.length"
                 required
               >
@@ -1005,170 +1035,162 @@ watch([editType, editAccountId, accounts], () => {
                   {{ a.name }} · {{ a.currency }}
                 </option>
               </select>
+              <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             </div>
           </div>
 
-          <div v-if="txType === 'transfer'" class="space-y-2">
-            <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              转入账户
-            </label>
-            <select
-              v-model="toAccountId"
-              class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              :disabled="!accounts.length"
-              required
-            >
-              <option v-for="a in accounts" :key="a.id" :value="a.id">
-                {{ a.name }} · {{ a.currency }}
-              </option>
-            </select>
-          </div>
-
-          <div class="grid gap-4 md:grid-cols-2">
+          <div class="grid gap-6 md:grid-cols-2">
             <div class="space-y-2">
-              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 金额
               </label>
-              <input
-                v-model="amount"
-                inputmode="decimal"
-                required
-                placeholder="例如 128.50"
-                class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
+              <div class="relative">
+                <input
+                  v-model="amount"
+                  inputmode="decimal"
+                  required
+                  placeholder="0.00"
+                  class="h-11 w-full rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/50 font-numeric"
+                >
+              </div>
             </div>
             <div class="space-y-2">
-              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 日期
               </label>
-              <input
-                v-model="occurredAt"
-                type="date"
-                required
-                class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
+              <div class="relative">
+                <input
+                  v-model="occurredAt"
+                  type="date"
+                  required
+                  class="h-11 w-full rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
+                >
+              </div>
             </div>
           </div>
 
           <div v-if="txType !== 'transfer'" class="space-y-3">
             <div class="flex items-center justify-between">
-              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 分类
               </label>
               <button
                 type="button"
-                class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
                 @click="categoryCreateOpen = true"
               >
-                <AppIcon name="lucide:plus" :size="16" class="opacity-80" />
+                <AppIcon name="lucide:plus" :size="14" />
                 新建分类
               </button>
             </div>
 
-            <div v-if="categoriesError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+            <div v-if="categoriesError" class="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
               读取分类失败：{{ categoriesError }}
             </div>
 
             <div v-else class="grid gap-4 md:grid-cols-2">
-              <select
-                v-model="categoryParentId"
-                class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="">
-                  选择一级分类（可选）
-                </option>
-                <option v-for="c in categories.filter((x) => !x.parent_id)" :key="c.id" :value="c.id">
-                  {{ c.name }}
-                </option>
-              </select>
-
-              <select
-                v-model="categoryChildId"
-                :disabled="!categoryParentId || !categories.some((x) => x.parent_id === categoryParentId)"
-                class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
-              >
-                <option value="">
-                  选择二级分类（可选）
-                </option>
-                <option
-                  v-for="c in categories.filter((x) => x.parent_id === categoryParentId)"
-                  :key="c.id"
-                  :value="c.id"
+              <div class="relative">
+                <select
+                  v-model="categoryParentId"
+                  class="h-11 w-full appearance-none rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
                 >
-                  {{ c.name }}
-                </option>
-              </select>
+                  <option value="">选择一级分类（可选）</option>
+                  <option v-for="c in categories.filter((x) => !x.parent_id)" :key="c.id" :value="c.id">
+                    {{ c.name }}
+                  </option>
+                </select>
+                <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
+
+              <div class="relative">
+                <select
+                  v-model="categoryChildId"
+                  :disabled="!categoryParentId || !categories.some((x) => x.parent_id === categoryParentId)"
+                  class="h-11 w-full appearance-none rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">选择二级分类（可选）</option>
+                  <option
+                    v-for="c in categories.filter((x) => x.parent_id === categoryParentId)"
+                    :key="c.id"
+                    :value="c.id"
+                  >
+                    {{ c.name }}
+                  </option>
+                </select>
+                <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
             </div>
           </div>
 
           <div v-if="txType !== 'transfer'" class="space-y-3">
             <div class="flex items-center justify-between">
-              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 标签
               </label>
               <div class="flex items-center gap-2">
                 <input
                   v-model="tagCreateName"
                   placeholder="新标签"
-                  class="h-8 w-28 rounded-lg border border-input bg-background/90 px-2 text-xs shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  class="h-8 w-24 rounded-lg border border-border/50 bg-background/50 px-2 text-xs shadow-sm outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary"
                 >
                 <button
                   type="button"
-                  class="inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                  class="inline-flex items-center gap-1 rounded-lg border border-border/50 bg-muted/50 px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   :disabled="tagCreating || !tagCreateName.trim()"
                   @click="createTag"
                 >
-                  <AppIcon name="lucide:plus" :size="14" class="opacity-80" />
+                  <AppIcon name="lucide:plus" :size="12" />
                   添加
                 </button>
               </div>
             </div>
 
-            <div v-if="tagsError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+            <div v-if="tagsError" class="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
               读取标签失败：{{ tagsError }}
             </div>
-            <div v-if="tagCreateError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+            <div v-if="tagCreateError" class="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
               创建失败：{{ tagCreateError }}
             </div>
 
-            <div v-else class="flex flex-wrap gap-2">
+            <div v-else class="flex flex-wrap gap-2 min-h-[2rem]">
               <button
                 v-for="t in tags"
                 :key="t.id"
                 type="button"
-                class="rounded-full border px-3 py-1 text-xs transition"
+                class="rounded-full border px-3 py-1 text-xs transition-all duration-200"
                 :class="selectedTagIds.includes(t.id)
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border/60 text-muted-foreground hover:text-foreground'"
+                  ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                  : 'border-border/50 bg-background/50 text-muted-foreground hover:border-border hover:text-foreground'"
                 @click="toggleTagSelection(selectedTagIds, t.id)"
               >
                 {{ t.name }}
               </button>
-              <span v-if="!tags.length" class="text-xs text-muted-foreground">暂无标签</span>
+              <span v-if="!tags.length" class="text-xs text-muted-foreground py-1">暂无标签</span>
             </div>
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+            <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               备注
             </label>
             <input
               v-model="note"
               placeholder="可选，例如 午餐、工资、转入"
-              class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              class="h-11 w-full rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
             >
           </div>
 
-          <div v-if="createError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+          <div v-if="createError" class="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             保存失败：{{ createError }}
           </div>
 
-          <div class="flex items-center justify-end gap-3">
-            <Button type="button" variant="outline" @click="createOpen = false">
+          <div class="flex items-center justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" class="border-border/50 hover:bg-muted/50" @click="createOpen = false">
               取消
             </Button>
             <Button
               type="submit"
+              class="shadow-lg shadow-primary/20"
               :disabled="creating
                 || !accounts.length
                 || !accountId
@@ -1184,51 +1206,75 @@ watch([editType, editAccountId, accounts], () => {
 
     <div
       v-if="editOpen"
-      class="fixed inset-0 z-50 flex items-end justify-center bg-background/40 p-4 backdrop-blur-sm md:items-center"
+      class="fixed inset-0 z-50 flex items-end justify-center bg-background/60 p-4 backdrop-blur-sm md:items-center"
       @click.self="editOpen = false"
     >
-      <div class="w-full max-w-xl rounded-3xl border border-border/70 bg-card/95 p-6 shadow-[0_46px_110px_-60px_rgba(8,12,20,0.6)] backdrop-blur md:p-8">
+      <div class="w-full max-w-xl rounded-3xl border border-border/50 bg-card/90 p-6 shadow-2xl backdrop-blur-xl md:p-8 animate-in fade-in zoom-in-95 duration-200">
         <div class="mb-6 flex items-start justify-between gap-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.28em] text-muted-foreground">
+            <div class="text-xs font-medium uppercase tracking-wider text-primary">
               编辑
             </div>
-            <div class="mt-2 text-2xl font-semibold tracking-tight">
+            <div class="mt-1 text-2xl font-bold tracking-tight text-foreground">
               交易
             </div>
           </div>
           <button
             type="button"
-            class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-background/70 text-muted-foreground hover:text-foreground"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-muted/50 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             @click="editOpen = false"
           >
             <AppIcon name="lucide:x" :size="18" />
           </button>
         </div>
 
-        <form class="space-y-5" @submit.prevent="saveEdit">
-          <div class="grid gap-4 md:grid-cols-2">
+        <form class="space-y-6" @submit.prevent="saveEdit">
+          <div class="grid gap-6 md:grid-cols-2">
             <div class="space-y-2">
-              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 类型
               </label>
-              <select
-                v-model="editType"
-                class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="expense">支出</option>
-                <option value="income">收入</option>
-                <option value="transfer">转账</option>
-              </select>
+              <div class="relative">
+                <select
+                  v-model="editType"
+                  class="h-11 w-full appearance-none rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
+                >
+                  <option value="expense">支出</option>
+                  <option value="income">收入</option>
+                  <option value="transfer">转账</option>
+                </select>
+                <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
             </div>
 
             <div class="space-y-2">
-              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {{ editType === 'transfer' ? '转出账户' : '账户' }}
               </label>
+              <div class="relative">
+                <select
+                  v-model="editAccountId"
+                  class="h-11 w-full appearance-none rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
+                  :disabled="!accounts.length"
+                  required
+                >
+                  <option v-for="a in accounts" :key="a.id" :value="a.id">
+                    {{ a.name }} · {{ a.currency }}
+                  </option>
+                </select>
+                <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+          </div>
+
+          <div v-if="editType === 'transfer'" class="space-y-2">
+            <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              转入账户
+            </label>
+            <div class="relative">
               <select
-                v-model="editAccountId"
-                class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                v-model="editToAccountId"
+                class="h-11 w-full appearance-none rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
                 :disabled="!accounts.length"
                 required
               >
@@ -1236,161 +1282,148 @@ watch([editType, editAccountId, accounts], () => {
                   {{ a.name }} · {{ a.currency }}
                 </option>
               </select>
+              <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             </div>
           </div>
 
-          <div v-if="editType === 'transfer'" class="space-y-2">
-            <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              转入账户
-            </label>
-            <select
-              v-model="editToAccountId"
-              class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              :disabled="!accounts.length"
-              required
-            >
-              <option v-for="a in accounts" :key="a.id" :value="a.id">
-                {{ a.name }} · {{ a.currency }}
-              </option>
-            </select>
-          </div>
-
-          <div class="grid gap-4 md:grid-cols-2">
+          <div class="grid gap-6 md:grid-cols-2">
             <div class="space-y-2">
-              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 金额
               </label>
               <input
                 v-model="editAmount"
                 inputmode="decimal"
                 required
-                placeholder="例如 128.50"
-                class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder="0.00"
+                class="h-11 w-full rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary font-numeric"
               >
             </div>
             <div class="space-y-2">
-              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 日期
               </label>
               <input
                 v-model="editOccurredAt"
                 type="date"
                 required
-                class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                class="h-11 w-full rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
               >
             </div>
           </div>
 
           <div v-if="editType !== 'transfer'" class="space-y-3">
             <div class="flex items-center justify-between">
-              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 分类
               </label>
             </div>
 
-            <div v-if="categoriesError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+            <div v-if="categoriesError" class="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
               读取分类失败：{{ categoriesError }}
             </div>
 
             <div v-else class="grid gap-4 md:grid-cols-2">
-              <select
-                v-model="editCategoryParentId"
-                class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="">
-                  选择一级分类（可选）
-                </option>
-                <option v-for="c in categories.filter((x) => !x.parent_id)" :key="c.id" :value="c.id">
-                  {{ c.name }}
-                </option>
-              </select>
-
-              <select
-                v-model="editCategoryChildId"
-                :disabled="!editCategoryParentId || !categories.some((x) => x.parent_id === editCategoryParentId)"
-                class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
-              >
-                <option value="">
-                  选择二级分类（可选）
-                </option>
-                <option
-                  v-for="c in categories.filter((x) => x.parent_id === editCategoryParentId)"
-                  :key="c.id"
-                  :value="c.id"
+              <div class="relative">
+                <select
+                  v-model="editCategoryParentId"
+                  class="h-11 w-full appearance-none rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
                 >
-                  {{ c.name }}
-                </option>
-              </select>
+                  <option value="">选择一级分类（可选）</option>
+                  <option v-for="c in categories.filter((x) => !x.parent_id)" :key="c.id" :value="c.id">
+                    {{ c.name }}
+                  </option>
+                </select>
+                <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
+
+              <div class="relative">
+                <select
+                  v-model="editCategoryChildId"
+                  :disabled="!editCategoryParentId || !categories.some((x) => x.parent_id === editCategoryParentId)"
+                  class="h-11 w-full appearance-none rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">选择二级分类（可选）</option>
+                  <option
+                    v-for="c in categories.filter((x) => x.parent_id === editCategoryParentId)"
+                    :key="c.id"
+                    :value="c.id"
+                  >
+                    {{ c.name }}
+                  </option>
+                </select>
+                <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
             </div>
           </div>
 
           <div v-if="editType !== 'transfer'" class="space-y-3">
             <div class="flex items-center justify-between">
-              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 标签
               </label>
               <div class="flex items-center gap-2">
                 <input
                   v-model="tagCreateName"
                   placeholder="新标签"
-                  class="h-8 w-28 rounded-lg border border-input bg-background/90 px-2 text-xs shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  class="h-8 w-24 rounded-lg border border-border/50 bg-background/50 px-2 text-xs shadow-sm outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary"
                 >
                 <button
                   type="button"
-                  class="inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                  class="inline-flex items-center gap-1 rounded-lg border border-border/50 bg-muted/50 px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   :disabled="tagCreating || !tagCreateName.trim()"
                   @click="createTag"
                 >
-                  <AppIcon name="lucide:plus" :size="14" class="opacity-80" />
+                  <AppIcon name="lucide:plus" :size="12" />
                   添加
                 </button>
               </div>
             </div>
 
-            <div v-if="tagsError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+            <div v-if="tagsError" class="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
               读取标签失败：{{ tagsError }}
             </div>
-            <div v-if="tagCreateError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+            <div v-if="tagCreateError" class="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
               创建失败：{{ tagCreateError }}
             </div>
 
-            <div v-else class="flex flex-wrap gap-2">
+            <div v-else class="flex flex-wrap gap-2 min-h-[2rem]">
               <button
                 v-for="t in tags"
                 :key="t.id"
                 type="button"
-                class="rounded-full border px-3 py-1 text-xs transition"
+                class="rounded-full border px-3 py-1 text-xs transition-all duration-200"
                 :class="editTagIds.includes(t.id)
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border/60 text-muted-foreground hover:text-foreground'"
+                  ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                  : 'border-border/50 bg-background/50 text-muted-foreground hover:border-border hover:text-foreground'"
                 @click="toggleTagSelection(editTagIds, t.id)"
               >
                 {{ t.name }}
               </button>
-              <span v-if="!tags.length" class="text-xs text-muted-foreground">暂无标签</span>
+              <span v-if="!tags.length" class="text-xs text-muted-foreground py-1">暂无标签</span>
             </div>
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+            <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               备注
             </label>
             <input
               v-model="editNote"
               placeholder="可选，例如 午餐、工资、转入"
-              class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              class="h-11 w-full rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
             >
           </div>
 
-          <div v-if="editError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+          <div v-if="editError" class="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             保存失败：{{ editError }}
           </div>
 
-          <div class="flex items-center justify-end gap-3">
-            <Button type="button" variant="outline" @click="editOpen = false">
+          <div class="flex items-center justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" class="border-border/50 hover:bg-muted/50" @click="editOpen = false">
               取消
             </Button>
-            <Button type="submit" :disabled="editing || !editAccountId || !editAmount">
+            <Button type="submit" class="shadow-lg shadow-primary/20" :disabled="editing || !editAccountId || !editAmount">
               {{ editing ? '保存中...' : '保存' }}
             </Button>
           </div>
@@ -1400,32 +1433,32 @@ watch([editType, editAccountId, accounts], () => {
 
     <div
       v-if="deleteOpen"
-      class="fixed inset-0 z-50 flex items-end justify-center bg-background/40 p-4 backdrop-blur-sm md:items-center"
+      class="fixed inset-0 z-50 flex items-end justify-center bg-background/60 p-4 backdrop-blur-sm md:items-center"
       @click.self="deleteOpen = false"
     >
-      <div class="w-full max-w-md rounded-3xl border border-border/70 bg-card/95 p-6 shadow-[0_46px_110px_-60px_rgba(8,12,20,0.6)] backdrop-blur">
+      <div class="w-full max-w-md rounded-3xl border border-border/50 bg-card/90 p-6 shadow-2xl backdrop-blur-xl md:p-8 animate-in fade-in zoom-in-95 duration-200">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.28em] text-muted-foreground">删除</div>
-            <div class="mt-2 text-xl font-semibold">该笔交易</div>
+            <div class="text-xs font-medium uppercase tracking-wider text-destructive">删除</div>
+            <div class="mt-1 text-xl font-bold text-foreground">确认删除该笔交易？</div>
           </div>
           <button
             type="button"
-            class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-background/70 text-muted-foreground hover:text-foreground"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-muted/50 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             @click="deleteOpen = false"
           >
             <AppIcon name="lucide:x" :size="18" />
           </button>
         </div>
-        <p class="mt-4 text-sm text-muted-foreground">
-          删除后将无法恢复。
+        <p class="mt-4 text-sm text-muted-foreground leading-relaxed">
+          此操作无法撤销。该交易记录将从您的账户流水中永久移除。
         </p>
-        <div v-if="deleteError" class="mt-4 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+        <div v-if="deleteError" class="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
           {{ deleteError }}
         </div>
         <div class="mt-6 flex items-center justify-end gap-3">
-          <Button type="button" variant="outline" @click="deleteOpen = false">取消</Button>
-          <Button type="button" variant="destructive" :disabled="deleting" @click="confirmDelete">
+          <Button type="button" variant="outline" class="border-border/50 hover:bg-muted/50" @click="deleteOpen = false">取消</Button>
+          <Button type="button" variant="destructive" class="shadow-lg shadow-destructive/20" :disabled="deleting" @click="confirmDelete">
             {{ deleting ? '删除中...' : '确认删除' }}
           </Button>
         </div>
@@ -1434,67 +1467,68 @@ watch([editType, editAccountId, accounts], () => {
 
     <div
       v-if="categoryCreateOpen"
-      class="fixed inset-0 z-50 flex items-end justify-center bg-background/40 p-4 backdrop-blur-sm md:items-center"
+      class="fixed inset-0 z-50 flex items-end justify-center bg-background/60 p-4 backdrop-blur-sm md:items-center"
       @click.self="categoryCreateOpen = false"
     >
-      <div class="w-full max-w-xl rounded-3xl border border-border/70 bg-card/95 p-6 shadow-[0_46px_110px_-60px_rgba(8,12,20,0.6)] backdrop-blur md:p-8">
+      <div class="w-full max-w-xl rounded-3xl border border-border/50 bg-card/90 p-6 shadow-2xl backdrop-blur-xl md:p-8 animate-in fade-in zoom-in-95 duration-200">
         <div class="mb-6 flex items-start justify-between gap-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.28em] text-muted-foreground">
+            <div class="text-xs font-medium uppercase tracking-wider text-primary">
               新建
             </div>
-            <div class="mt-2 text-2xl font-semibold tracking-tight">
+            <div class="mt-1 text-2xl font-bold tracking-tight text-foreground">
               分类
             </div>
           </div>
           <button
             type="button"
-            class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-background/70 text-muted-foreground hover:text-foreground"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-muted/50 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             @click="categoryCreateOpen = false"
           >
             <AppIcon name="lucide:x" :size="18" />
           </button>
         </div>
 
-        <form class="space-y-5" @submit.prevent="createCategory">
+        <form class="space-y-6" @submit.prevent="createCategory">
           <div class="space-y-2">
-            <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+            <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               上级（可选）
             </label>
-            <select
-              v-model="categoryCreateParentId"
-              class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <option value="">
-                一级分类
-              </option>
-              <option v-for="c in categories.filter((x) => !x.parent_id)" :key="c.id" :value="c.id">
-                {{ c.name }}
-              </option>
-            </select>
+            <div class="relative">
+              <select
+                v-model="categoryCreateParentId"
+                class="h-11 w-full appearance-none rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
+              >
+                <option value="">一级分类</option>
+                <option v-for="c in categories.filter((x) => !x.parent_id)" :key="c.id" :value="c.id">
+                  {{ c.name }}
+                </option>
+              </select>
+              <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            </div>
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+            <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               名称
             </label>
             <input
               v-model="categoryCreateName"
               required
               placeholder="例如 餐饮、交通、工资"
-              class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              class="h-11 w-full rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
             >
           </div>
 
-          <div v-if="categoryCreateError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+          <div v-if="categoryCreateError" class="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             创建失败：{{ categoryCreateError }}
           </div>
 
-          <div class="flex items-center justify-end gap-3">
-            <Button type="button" variant="outline" @click="categoryCreateOpen = false">
+          <div class="flex items-center justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" class="border-border/50 hover:bg-muted/50" @click="categoryCreateOpen = false">
               取消
             </Button>
-            <Button type="submit" :disabled="categoryCreating || !categoryCreateName.trim()">
+            <Button type="submit" class="shadow-lg shadow-primary/20" :disabled="categoryCreating || !categoryCreateName.trim()">
               {{ categoryCreating ? '创建中...' : '创建' }}
             </Button>
           </div>

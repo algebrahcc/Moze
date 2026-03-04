@@ -217,196 +217,221 @@ watchEffect(() => {
 </script>
 
 <template>
-  <div class="space-y-8">
+  <div class="space-y-8 pb-10">
     <div class="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
       <div>
         <div class="flex items-center gap-2">
-          <AppIcon name="lucide:trending-up" :size="18" class="text-muted-foreground" />
-          <h1 class="text-2xl font-semibold tracking-tight">
+          <AppIcon name="lucide:trending-up" :size="24" class="text-primary" />
+          <h1 class="text-3xl font-bold tracking-tight text-foreground/90">
             投资账户净值
           </h1>
         </div>
-        <p class="mt-2 text-sm text-muted-foreground">
+        <p class="mt-2 text-base text-muted-foreground">
           按日期记录总资产与净入金，自动计算盈亏
         </p>
       </div>
     </div>
 
-    <Card>
-      <CardHeader class="text-sm font-medium">
-        录入快照
-      </CardHeader>
-      <CardContent>
-        <div v-if="accountsError" class="mb-5 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          读取账户失败：{{ accountsError }}
-        </div>
+    <div class="grid gap-8 lg:grid-cols-3">
+      <!-- Input Form -->
+      <Card class="lg:col-span-1 h-fit border-border/50 bg-card/60 shadow-xl backdrop-blur-xl">
+        <CardHeader class="border-b border-border/40 pb-4">
+          <CardTitle class="text-lg font-medium flex items-center gap-2">
+            <AppIcon name="lucide:pen-line" :size="18" class="text-primary" />
+            录入快照
+          </CardTitle>
+        </CardHeader>
+        <CardContent class="pt-6">
+          <div v-if="accountsError" class="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            读取账户失败：{{ accountsError }}
+          </div>
 
-        <form class="grid gap-4 md:grid-cols-2" @submit.prevent="submitSnapshot">
-          <div class="space-y-3">
-            <label class="text-sm font-medium">
-              股票账户
-            </label>
-            <select
-              v-model="accountId"
-              class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              required
-            >
-              <option v-for="a in accounts" :key="a.id" :value="a.id">
-                {{ a.name }}
-              </option>
-            </select>
-            <div v-if="!accounts.length && !accountsError" class="text-sm text-muted-foreground">
-              暂无股票账户，请先在“账户”中创建 type=stock 的账户。
+          <form class="space-y-5" @submit.prevent="submitSnapshot">
+            <div class="space-y-2">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                股票账户
+              </label>
+              <div class="relative">
+                <select
+                  v-model="accountId"
+                  class="h-11 w-full appearance-none rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
+                  required
+                >
+                  <option v-for="a in accounts" :key="a.id" :value="a.id">
+                    {{ a.name }}
+                  </option>
+                </select>
+                <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
+              <div v-if="!accounts.length && !accountsError" class="text-xs text-muted-foreground">
+                暂无股票账户，请先在“账户”中创建 type=stock 的账户。
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                日期
+              </label>
+              <div class="relative">
+                <input
+                  v-model="date"
+                  type="date"
+                  required
+                  class="h-11 w-full rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
+                >
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                当日总资产
+              </label>
+              <div class="relative">
+                <input
+                  v-model="totalValue"
+                  inputmode="decimal"
+                  required
+                  placeholder="0.00"
+                  class="h-11 w-full rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary font-numeric"
+                >
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                当日净入金
+              </label>
+              <div class="relative">
+                <input
+                  v-model="netDeposit"
+                  inputmode="decimal"
+                  placeholder="默认 0"
+                  class="h-11 w-full rounded-xl border border-border/50 bg-background/50 px-4 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary font-numeric"
+                >
+              </div>
+              <div class="text-[10px] text-muted-foreground">
+                银证转入为正，转出为负；用于修正盈亏计算
+              </div>
+            </div>
+
+            <div class="pt-2 flex flex-col gap-3">
+              <Button class="w-full shadow-lg shadow-primary/20" :disabled="submitting || !accountId || !totalValue">
+                {{ submitting ? '保存中...' : '保存快照' }}
+              </Button>
+              
+              <div v-if="submitOk" class="flex items-center justify-center gap-2 rounded-lg bg-green-500/10 py-2 text-xs font-medium text-green-600 dark:text-green-400">
+                <AppIcon name="lucide:check-circle" :size="14" />
+                已保存
+              </div>
+              <div v-if="submitError" class="flex items-center justify-center gap-2 rounded-lg bg-destructive/10 py-2 text-xs font-medium text-destructive">
+                <AppIcon name="lucide:alert-circle" :size="14" />
+                保存失败：{{ submitError }}
+              </div>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <!-- History List -->
+      <Card class="lg:col-span-2 overflow-hidden border-border/50 bg-card/60 shadow-xl backdrop-blur-xl">
+        <CardHeader class="border-b border-border/40 pb-4">
+          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <CardTitle class="text-lg font-medium flex items-center gap-2">
+              <AppIcon name="lucide:history" :size="18" class="text-primary" />
+              历史记录
+            </CardTitle>
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="hidden h-8 w-32 md:block opacity-70">
+                <Sparkline :points="trendPoints" class="text-primary" />
+              </div>
+              <div class="flex items-center gap-1 rounded-lg border border-border/50 bg-muted/30 p-1 text-xs backdrop-blur-md">
+                <button
+                  type="button"
+                  class="px-2.5 py-1 rounded-md transition-all font-medium"
+                  :class="trendRange === 30 ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                  @click="trendRange = 30"
+                >
+                  30天
+                </button>
+                <button
+                  type="button"
+                  class="px-2.5 py-1 rounded-md transition-all font-medium"
+                  :class="trendRange === 90 ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                  @click="trendRange = 90"
+                >
+                  90天
+                </button>
+              </div>
+              <Button variant="outline" size="sm" class="h-8 text-xs border-border/50 bg-background/50 hover:bg-background" :disabled="recalculating || !accountId" @click="recalcDailyPnl">
+                <AppIcon name="lucide:refresh-cw" :size="12" class="mr-1.5" :class="{ 'animate-spin': recalculating }" />
+                {{ recalculating ? '计算中...' : '重算盈亏' }}
+              </Button>
             </div>
           </div>
-
-          <div class="space-y-3">
-            <label class="text-sm font-medium">
-              日期
-            </label>
-            <input
-              v-model="date"
-              type="date"
-              required
-              class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
+          <div v-if="recalcOk" class="mt-2 text-xs font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
+            <AppIcon name="lucide:check" :size="12" /> 已重新计算
+          </div>
+          <div v-if="recalcError" class="mt-2 text-xs font-medium text-destructive flex items-center gap-1">
+            <AppIcon name="lucide:alert-circle" :size="12" /> {{ recalcError }}
+          </div>
+        </CardHeader>
+        <CardContent class="p-0">
+          <div v-if="!user" class="flex flex-col items-center justify-center py-16 text-center">
+            <AppIcon name="lucide:lock" :size="48" class="mb-4 text-muted-foreground/30" />
+            <p class="text-sm text-muted-foreground">请先登录后查看净值记录。</p>
           </div>
 
-          <div class="space-y-3">
-            <label class="text-sm font-medium">
-              当日总资产
-            </label>
-            <input
-              v-model="totalValue"
-              inputmode="decimal"
-              required
-              placeholder="例如 120000"
-              class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-          </div>
-
-          <div class="space-y-3">
-            <label class="text-sm font-medium">
-              当日净入金
-            </label>
-            <input
-              v-model="netDeposit"
-              inputmode="decimal"
-              placeholder="默认 0"
-              class="h-12 w-full rounded-xl border border-input bg-background/90 px-4 text-sm shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-            <div class="text-sm text-muted-foreground">
-              银证转入为正，转出为负；用于修正盈亏计算
+          <div v-else-if="recentError" class="m-6 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            <div class="flex items-center gap-2 font-semibold">
+              <AppIcon name="lucide:alert-circle" :size="16" />
+              加载失败
             </div>
+            <p class="mt-1 opacity-90">{{ recentError }}</p>
           </div>
 
-          <div class="md:col-span-2 flex flex-col gap-2">
-            <Button :disabled="submitting || !accountId || !totalValue">
-              {{ submitting ? '保存中...' : '保存' }}
-            </Button>
-            <div v-if="submitOk" class="text-sm text-muted-foreground">
-              已保存。
-            </div>
-            <div v-if="submitError" class="text-sm text-destructive">
-              保存失败：{{ submitError }}
-            </div>
+          <div v-else-if="!recent.length" class="flex flex-col items-center justify-center py-16 text-center">
+            <EmptyStateIllustration class="mb-6 w-40 opacity-50 grayscale" />
+            <h3 class="text-lg font-medium text-foreground/80">暂无记录</h3>
+            <p class="mt-2 text-sm text-muted-foreground">
+              录入一条快照后会显示在这里。
+            </p>
           </div>
-        </form>
-      </CardContent>
-    </Card>
 
-    <Card>
-      <CardHeader>
-        <div class="flex items-center justify-between">
-          <CardTitle>最近记录</CardTitle>
-          <div class="flex items-center gap-3">
-            <div class="hidden h-8 w-28 md:block">
-              <Sparkline :points="trendPoints" class="text-primary" />
-            </div>
-            <div class="flex items-center gap-1 rounded-lg border border-border/60 bg-background/60 p-1 text-xs">
-              <button
-                type="button"
-                class="px-2 py-1 rounded-md transition"
-                :class="trendRange === 30 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
-                @click="trendRange = 30"
-              >
-                30天
-              </button>
-              <button
-                type="button"
-                class="px-2 py-1 rounded-md transition"
-                :class="trendRange === 90 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
-                @click="trendRange = 90"
-              >
-                90天
-              </button>
-            </div>
-            <Button variant="outline" size="sm" :disabled="recalculating || !accountId" @click="recalcDailyPnl">
-              {{ recalculating ? '计算中...' : '重新计算盈亏' }}
-            </Button>
-          </div>
-        </div>
-        <div v-if="recalcOk" class="mt-2 text-xs text-green-600">已重新计算。</div>
-        <div v-if="recalcError" class="mt-2 text-xs text-destructive">计算失败：{{ recalcError }}</div>
-      </CardHeader>
-      <CardContent>
-        <div v-if="!user" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/5 py-12 text-center">
-          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-            <AppIcon name="lucide:lock" :size="24" class="opacity-50" />
-          </div>
-          <p class="mt-4 text-sm text-muted-foreground">请先登录后查看净值记录。</p>
-        </div>
-
-        <div v-else-if="recentError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          加载失败：{{ recentError }}
-        </div>
-
-        <div v-else-if="!recent.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/5 py-12 text-center">
-          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-            <AppIcon name="lucide:trending-up" :size="24" class="opacity-50" />
-          </div>
-          <h3 class="mt-4 text-lg font-semibold">暂无记录</h3>
-          <p class="mt-2 text-sm text-muted-foreground max-w-sm">
-            录入一条快照后会显示在这里。
-          </p>
-        </div>
-
-        <div v-else class="overflow-hidden rounded-xl border border-border/50">
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left">
-              <thead class="bg-muted/50 text-xs uppercase text-muted-foreground">
+          <div v-else class="relative w-full overflow-auto">
+            <table class="w-full caption-bottom text-sm text-left">
+              <thead class="bg-muted/30 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
                 <tr>
-                  <th class="px-6 py-3 font-medium tracking-wider">日期</th>
-                  <th class="px-6 py-3 font-medium tracking-wider text-right">总资产</th>
-                  <th class="px-6 py-3 font-medium tracking-wider text-right">当日盈亏</th>
-                  <th class="hidden px-6 py-3 font-medium tracking-wider text-right md:table-cell">净入金</th>
-                  <th class="hidden px-6 py-3 font-medium tracking-wider text-right md:table-cell">累计盈亏</th>
+                  <th class="h-10 px-6 py-3">日期</th>
+                  <th class="h-10 px-6 py-3 text-right">总资产</th>
+                  <th class="h-10 px-6 py-3 text-right">当日盈亏</th>
+                  <th class="hidden h-10 px-6 py-3 text-right md:table-cell">净入金</th>
+                  <th class="hidden h-10 px-6 py-3 text-right md:table-cell">累计盈亏</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-border/50 bg-card">
-                <tr v-for="r in computedRecent.slice(0, 30)" :key="r.id" class="group transition-colors hover:bg-muted/50">
-                  <td class="px-6 py-4 tabular-nums text-muted-foreground">
+              <tbody class="divide-y divide-border/30">
+                <tr v-for="r in computedRecent.slice(0, 30)" :key="r.id" class="transition-colors hover:bg-muted/40">
+                  <td class="px-6 py-4 tabular-nums text-muted-foreground font-medium">
                     {{ r.date }}
                   </td>
-                  <td class="px-6 py-4 text-right font-medium tabular-nums text-foreground">
+                  <td class="px-6 py-4 text-right font-bold tabular-nums font-numeric text-foreground">
                     {{ r.totalValueNum.toFixed(2) }}
                   </td>
-                  <td class="px-6 py-4 text-right tabular-nums font-medium" 
+                  <td class="px-6 py-4 text-right tabular-nums font-bold font-numeric" 
                     :class="{
                       'text-destructive': (r.dailyPnl ?? 0) < 0,
-                      'text-green-600': (r.dailyPnl ?? 0) > 0,
+                      'text-emerald-600 dark:text-emerald-400': (r.dailyPnl ?? 0) > 0,
                       'text-muted-foreground': (r.dailyPnl ?? 0) === 0
                     }"
                   >
                     {{ r.dailyPnl === null ? '—' : (r.dailyPnl > 0 ? '+' : '') + r.dailyPnl.toFixed(2) }}
                   </td>
-                  <td class="hidden px-6 py-4 text-right tabular-nums text-muted-foreground md:table-cell">
+                  <td class="hidden px-6 py-4 text-right tabular-nums font-numeric text-muted-foreground md:table-cell">
                     {{ r.netDepositNum.toFixed(2) }}
                   </td>
-                  <td class="hidden px-6 py-4 text-right tabular-nums font-medium md:table-cell"
+                  <td class="hidden px-6 py-4 text-right tabular-nums font-bold font-numeric md:table-cell"
                     :class="{
                       'text-destructive': r.cumulativePnl < 0,
-                      'text-green-600': r.cumulativePnl > 0,
+                      'text-emerald-600 dark:text-emerald-400': r.cumulativePnl > 0,
                       'text-muted-foreground': r.cumulativePnl === 0
                     }"
                   >
@@ -416,8 +441,8 @@ watchEffect(() => {
               </tbody>
             </table>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   </div>
 </template>

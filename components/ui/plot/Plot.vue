@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Line, Column, Pie } from '@antv/g2plot'
+import { Line, Column, Pie, Area } from '@antv/g2plot'
 import ChartLegend from '../chart/ChartLegend.vue'
 
-type PlotType = 'line' | 'stacked' | 'grouped' | 'donut'
+type PlotType = 'line' | 'stacked' | 'grouped' | 'donut' | 'area'
 
 const props = withDefaults(defineProps<{
   type: PlotType
@@ -16,7 +16,7 @@ const props = withDefaults(defineProps<{
 })
 
 const containerRef = ref<HTMLDivElement | null>(null)
-let plot: Line | Column | Pie | null = null
+let plot: Line | Column | Pie | Area | null = null
 const normalizedColors = computed(() => (props.colors ? [...props.colors] : undefined))
 
 function destroyPlot() {
@@ -101,6 +101,27 @@ function createPlot() {
       color: normalizedColors.value,
       columnStyle: {
         radius: [4, 4, 0, 0],
+      },
+      tooltip: baseTooltip(),
+      legend: false,
+      padding: [12, 12, 24, 8],
+      animation: { appear: { duration: 320 } },
+    })
+  } else if (props.type === 'area') {
+    plot = new Area(containerRef.value, {
+      data: props.data,
+      xField: 'x',
+      yField: 'y',
+      seriesField: 'series',
+      smooth: true,
+      color: normalizedColors.value,
+      areaStyle: () => {
+        return {
+          fill: `l(270) 0:${normalizedColors.value?.[0] || 'rgba(34, 197, 94, 0.4)'} 1:rgba(255,255,255,0.01)`,
+        }
+      },
+      line: {
+        size: 2,
       },
       tooltip: baseTooltip(),
       legend: false,

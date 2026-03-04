@@ -72,69 +72,69 @@ const trendPlotData = computed(() => {
   <div class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
     <!-- Summary Cards -->
     <div class="grid gap-4 md:grid-cols-4">
-      <Card class="bg-card/50 backdrop-blur-sm">
+      <Card class="border-border/50 bg-card/60 shadow-lg backdrop-blur-xl transition-transform hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">年度总收入</CardTitle>
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/10 text-green-600">
-            <AppIcon name="lucide:trending-up" :size="16" />
+          <CardTitle class="text-sm font-medium text-muted-foreground">年度总收入</CardTitle>
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <AppIcon name="lucide:trending-up" :size="20" />
           </div>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold font-numeric">
+          <div class="text-2xl font-bold font-numeric text-foreground">
             ¥{{ annualIncome.toFixed(2) }}
           </div>
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1 font-medium">
             {{ year }}年全年
           </p>
         </CardContent>
       </Card>
 
-      <Card class="bg-card/50 backdrop-blur-sm">
+      <Card class="border-border/50 bg-card/60 shadow-lg backdrop-blur-xl transition-transform hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">年度总支出</CardTitle>
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-            <AppIcon name="lucide:trending-down" :size="16" />
+          <CardTitle class="text-sm font-medium text-muted-foreground">年度总支出</CardTitle>
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+            <AppIcon name="lucide:trending-down" :size="20" />
           </div>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold font-numeric">
+          <div class="text-2xl font-bold font-numeric text-foreground">
             ¥{{ annualExpense.toFixed(2) }}
           </div>
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1 font-medium">
             {{ year }}年全年
           </p>
         </CardContent>
       </Card>
 
-      <Card class="bg-card/50 backdrop-blur-sm">
+      <Card class="border-border/50 bg-card/60 shadow-lg backdrop-blur-xl transition-transform hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">年度结余</CardTitle>
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <AppIcon name="lucide:wallet" :size="16" />
+          <CardTitle class="text-sm font-medium text-muted-foreground">年度结余</CardTitle>
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <AppIcon name="lucide:wallet" :size="20" />
           </div>
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold font-numeric" :class="annualBalance >= 0 ? 'text-primary' : 'text-destructive'">
             {{ annualBalance >= 0 ? '+' : '' }}¥{{ annualBalance.toFixed(2) }}
           </div>
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1 font-medium">
             收入 - 支出
           </p>
         </CardContent>
       </Card>
 
-      <Card class="bg-card/50 backdrop-blur-sm">
+      <Card class="border-border/50 bg-card/60 shadow-lg backdrop-blur-xl transition-transform hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">年度预算总额</CardTitle>
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600">
-            <AppIcon name="lucide:target" :size="16" />
+          <CardTitle class="text-sm font-medium text-muted-foreground">年度预算总额</CardTitle>
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
+            <AppIcon name="lucide:target" :size="20" />
           </div>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold font-numeric">
+          <div class="text-2xl font-bold font-numeric text-foreground">
             ¥{{ annualBudget.toFixed(2) }}
           </div>
-          <p class="text-xs text-muted-foreground mt-1">
+          <p class="text-xs text-muted-foreground mt-1 font-medium">
             {{ year }}年累计预算
           </p>
         </CardContent>
@@ -142,14 +142,14 @@ const trendPlotData = computed(() => {
     </div>
 
     <!-- Charts -->
-    <div class="grid gap-4 md:grid-cols-2">
+    <div class="grid gap-6 md:grid-cols-2">
       <!-- Budget vs Actual -->
-      <Card class="rounded-lg bg-card/60 shadow-[0_18px_40px_-26px_rgba(15,23,42,0.6)] backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle class="text-sm font-medium">预算执行情况 (月度)</CardTitle>
+      <Card class="overflow-hidden border-border/50 bg-card/60 shadow-xl backdrop-blur-xl">
+        <CardHeader class="border-b border-border/40 pb-4">
+          <CardTitle class="text-base font-medium">预算执行情况 (月度)</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div class="h-[300px] w-full">
+        <CardContent class="pt-6">
+          <div class="h-[320px] w-full">
             <ClientOnly>
               <Plot 
                 type="grouped" 
@@ -163,12 +163,12 @@ const trendPlotData = computed(() => {
       </Card>
 
       <!-- Annual Trend -->
-      <Card class="rounded-lg bg-card/60 shadow-[0_18px_40px_-26px_rgba(15,23,42,0.6)] backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle class="text-sm font-medium">年度收支趋势</CardTitle>
+      <Card class="overflow-hidden border-border/50 bg-card/60 shadow-xl backdrop-blur-xl">
+        <CardHeader class="border-b border-border/40 pb-4">
+          <CardTitle class="text-base font-medium">年度收支趋势</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div class="h-[300px] w-full">
+        <CardContent class="pt-6">
+          <div class="h-[320px] w-full">
             <ClientOnly>
               <Plot 
                 type="line" 
