@@ -1,36 +1,21 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
-import { Plot } from '@/components/ui/plot'
+import { BaseChart } from '@/components/ui/chart'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-type TxType = 'expense' | 'income' | 'transfer'
-
-type TxRow = {
-  id?: string
-  type: TxType
-  amount: string
-  occurred_at: string
-  category: string | null
-}
-
 const props = defineProps<{
-  yearTx: TxRow[]
   yearBudgets: Record<string, number> // key: 'YYYY-MM-01'
   monthlyTrendData: { label: string; income: number; expense: number }[]
   year: number
 }>()
 
 const annualIncome = computed(() => {
-  return props.yearTx
-    .filter((t) => t.type === 'income')
-    .reduce((sum, t) => sum + Number(t.amount ?? 0), 0)
+  return props.monthlyTrendData.reduce((sum, m) => sum + Number(m.income ?? 0), 0)
 })
 
 const annualExpense = computed(() => {
-  return props.yearTx
-    .filter((t) => t.type === 'expense')
-    .reduce((sum, t) => sum + Number(t.amount ?? 0), 0)
+  return props.monthlyTrendData.reduce((sum, m) => sum + Number(m.expense ?? 0), 0)
 })
 
 const annualBudget = computed(() => {
@@ -151,7 +136,7 @@ const trendPlotData = computed(() => {
         <CardContent class="pt-6">
           <div class="h-[320px] w-full">
             <ClientOnly>
-              <Plot 
+              <BaseChart 
                 type="grouped" 
                 :data="budgetVsActualData.map(d => ({ x: d.x, y: d.value, series: d.type }))" 
                 :colors="budgetVsActualColors"
@@ -170,7 +155,7 @@ const trendPlotData = computed(() => {
         <CardContent class="pt-6">
           <div class="h-[320px] w-full">
             <ClientOnly>
-              <Plot 
+              <BaseChart 
                 type="line" 
                 :data="trendPlotData" 
                 :colors="trendColors"

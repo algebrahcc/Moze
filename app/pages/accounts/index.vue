@@ -3,26 +3,14 @@ import AppIcon from '@/components/AppIcon.vue'
 import EmptyStateIllustration from '@/components/illustrations/EmptyStateIllustration.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-
-type AccountType = 'cash' | 'credit' | 'stock'
-
-type Account = {
-  id: string
-  name: string
-  type: AccountType
-  currency: string
-  is_archived: boolean
-  created_at: string
-}
+import { storeToRefs } from 'pinia'
+import { useAccountsStore, type Account, type AccountType } from '@/stores/accounts'
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 
-const loading = ref(false)
-const errorMessage = ref<string | null>(null)
-const accounts = ref<Account[]>([])
-const balances = ref<Record<string, number>>({})
-const latestSnapshots = ref<Record<string, number>>({})
+const accountsStore = useAccountsStore()
+const { loading, errorMessage, accounts, balances, latestSnapshots } = storeToRefs(accountsStore)
 
 const createOpen = ref(false)
 const creating = ref(false)
@@ -73,84 +61,6 @@ function labelForType(t: AccountType) {
   return '股票'
 }
 
-async function loadAccounts() {
-  if (!user.value) return
-  errorMessage.value = null
-  loading.value = true
-
-  const { data, error } = await supabase
-    .from('accounts')
-    .select('id,name,type,currency,is_archived,created_at')
-    .order('is_archived', { ascending: true })
-    .order('type', { ascending: true })
-    .order('name', { ascending: true })
-
-  loading.value = false
-
-  if (error) {
-    errorMessage.value = error.message
-    accounts.value = []
-    return
-  }
-
-  accounts.value = (data ?? []) as Account[]
-  await loadBalances()
-}
-
-async function loadBalances() {
-  if (!user.value || !accounts.value.length) {
-    balances.value = {}
-    latestSnapshots.value = {}
-    return
-  }
-
-  const accountIds = accounts.value.map((a) => a.id)
-  const stockIds = accounts.value.filter((a) => a.type === 'stock').map((a) => a.id)
-
-  const [{ data: txRows, error: txErr }, { data: snapshotRows, error: snapErr }] = await Promise.all([
-    supabase
-      .from('transactions')
-      .select('type,amount,account_id,to_account_id')
-      .order('occurred_at', { ascending: true }),
-    stockIds.length
-      ? supabase
-          .from('asset_snapshots')
-          .select('account_id,date,total_value')
-          .in('account_id', stockIds)
-          .order('date', { ascending: false })
-      : Promise.resolve({ data: [], error: null }),
-  ])
-
-  if (txErr || snapErr) {
-    errorMessage.value = txErr?.message || snapErr?.message || '读取余额失败'
-    return
-  }
-
-  const map: Record<string, number> = {}
-  for (const id of accountIds) map[id] = 0
-  for (const row of txRows ?? []) {
-    const amt = Number(row.amount ?? 0)
-    if (row.type === 'expense') map[row.account_id] = (map[row.account_id] ?? 0) - amt
-    if (row.type === 'income') map[row.account_id] = (map[row.account_id] ?? 0) + amt
-    if (row.type === 'transfer') {
-      map[row.account_id] = (map[row.account_id] ?? 0) - amt
-      if (row.to_account_id) {
-        map[row.to_account_id] = (map[row.to_account_id] ?? 0) + amt
-      }
-    }
-  }
-
-  const snapMap: Record<string, number> = {}
-  for (const row of snapshotRows ?? []) {
-    if (snapMap[row.account_id] === undefined) {
-      snapMap[row.account_id] = Number(row.total_value ?? 0)
-    }
-  }
-
-  balances.value = map
-  latestSnapshots.value = snapMap
-}
-
 async function createAccount() {
   if (!user.value) return
   createError.value = null
@@ -175,7 +85,7 @@ async function createAccount() {
   name.value = ''
   type.value = 'cash'
   currency.value = 'CNY'
-  await loadAccounts()
+  await accountsStore.load()
 }
 
 async function setArchived(a: Account, archived: boolean) {
@@ -190,7 +100,7 @@ async function setArchived(a: Account, archived: boolean) {
     return
   }
 
-  await loadAccounts()
+  await accountsStore.load()
 }
 
 function openEdit(a: Account) {
@@ -227,7 +137,7 @@ async function saveEdit() {
 
   editOpen.value = false
   editingAccountId.value = null
-  await loadAccounts()
+  await accountsStore.load()
 }
 
 function requestDelete(a: Account) {
@@ -279,7 +189,7 @@ async function confirmDelete() {
 
   deleteOpen.value = false
   deleteTarget.value = null
-  await loadAccounts()
+  await accountsStore.load()
 }
 
 async function confirmArchive() {
@@ -297,7 +207,7 @@ async function confirmArchive() {
   }
   archiveOpen.value = false
   archiveTarget.value = null
-  await loadAccounts()
+  await accountsStore.load()
 }
 
 function requestAdjust(a: Account) {
@@ -342,15 +252,15 @@ async function confirmAdjust() {
 
   adjustOpen.value = false
   adjustTarget.value = null
-  await loadBalances()
+  await accountsStore.loadBalances()
 }
 
 watchEffect(() => {
   if (user.value) {
-    loadAccounts()
+    accountsStore.load()
     return
   }
-  accounts.value = []
+  accountsStore.clear()
 })
 </script>
 

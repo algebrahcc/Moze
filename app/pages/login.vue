@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppIcon from '@/components/AppIcon.vue'
+import { useToast } from '@/app/composables/useToast'
 
 definePageMeta({
   layout: 'auth',
@@ -7,9 +8,11 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const toast = useToast()
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
+const oauthRedirecting = ref(false)
 const sent = ref(false)
 const signupSent = ref(false)
 const resetSent = ref(false)
@@ -32,6 +35,7 @@ async function signInWithPassword() {
 
   if (error) {
     errorMessage.value = error.message
+    toast({ title: '登录失败', description: error.message, variant: 'error' })
     return
   }
 
@@ -62,10 +66,12 @@ async function signUpWithPassword() {
 
   if (error) {
     errorMessage.value = error.message
+    toast({ title: '注册失败', description: error.message, variant: 'error' })
     return
   }
 
   signupSent.value = true
+  toast({ title: '注册成功', description: '请检查邮箱完成验证。', variant: 'success' })
 }
 
 async function resetPassword() {
@@ -85,14 +91,17 @@ async function resetPassword() {
   loading.value = false
   if (error) {
     errorMessage.value = error.message
+    toast({ title: '发送失败', description: error.message, variant: 'error' })
     return
   }
   resetSent.value = true
+  toast({ title: '已发送', description: '重置密码邮件已发送，请检查邮箱。', variant: 'success' })
 }
 
 async function signInWithGithub() {
   errorMessage.value = null
   loading.value = true
+  oauthRedirecting.value = true
   
   const origin = useRequestURL().origin
   const { error } = await supabase.auth.signInWithOAuth({
@@ -104,7 +113,9 @@ async function signInWithGithub() {
   
   if (error) {
     loading.value = false
+    oauthRedirecting.value = false
     errorMessage.value = 'GitHub 登录失败：' + error.message
+    toast({ title: 'GitHub 登录失败', description: error.message, variant: 'error' })
   }
 }
 
@@ -271,6 +282,18 @@ watchEffect(() => {
           </a>
           。
         </p>
+      </div>
+    </div>
+
+    <div v-if="oauthRedirecting" class="fixed inset-0 z-[90] flex items-center justify-center bg-background/70 backdrop-blur-sm">
+      <div class="w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl border border-border/50 bg-card/80 p-6 shadow-2xl backdrop-blur-xl">
+        <div class="flex items-center gap-3">
+          <AppIcon name="lucide:loader-2" :size="18" class="animate-spin text-muted-foreground" />
+          <div class="text-sm font-semibold">正在跳转到 GitHub…</div>
+        </div>
+        <div class="mt-2 text-xs text-muted-foreground">
+          若长时间无响应，请检查网络或 Supabase 的 GitHub Provider 配置。
+        </div>
       </div>
     </div>
   </div>

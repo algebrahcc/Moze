@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import EmptyStateIllustration from '@/components/illustrations/EmptyStateIllustration.vue'
-import { Plot } from '@/components/ui/plot'
+import { BaseChart } from '@/components/ui/chart'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 type TxType = 'expense' | 'income' | 'transfer'
@@ -19,6 +19,7 @@ type TxRow = {
 const props = defineProps<{
   monthTx: TxRow[]
   monthlyTrendData: { label: string; income: number; expense: number }[]
+  monthCategoryExpenses?: { category: string; expense: number }[]
   budget: number
   budgetLoading: boolean
   year: number
@@ -55,6 +56,11 @@ const budgetUsagePercent = computed(() => {
 })
 
 const categoryData = computed(() => {
+  if (props.monthCategoryExpenses?.length) {
+    return props.monthCategoryExpenses
+      .map((d) => [d.category, d.expense] as const)
+      .slice(0, 8)
+  }
   const map: Record<string, number> = {}
   for (const t of props.monthTx) {
     if (t.type !== 'expense') continue
@@ -244,7 +250,7 @@ watch(() => props.budget, (val) => {
         <CardContent class="pt-6">
           <div class="h-[280px] w-full">
             <ClientOnly>
-              <Plot :type="trendChartType" :data="trendPlotData" :colors="trendColors" :legend-items="trendLegendItems" />
+              <BaseChart :type="trendChartType" :data="trendPlotData" :colors="trendColors" :legend-items="trendLegendItems" />
             </ClientOnly>
           </div>
         </CardContent>
@@ -269,7 +275,7 @@ watch(() => props.budget, (val) => {
               <span>暂无支出数据</span>
             </div>
             <ClientOnly v-else>
-              <Plot :type="categoryChartType" :data="categoryPlotData" :colors="categoryPalette" :legend-items="categoryLegendForPlot" />
+              <BaseChart :type="categoryChartType" :data="categoryPlotData" :colors="categoryPalette" :legend-items="categoryLegendForPlot" />
             </ClientOnly>
           </div>
         </CardContent>

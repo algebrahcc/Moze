@@ -86,6 +86,9 @@ const defaultCategorySeeds = [
   { name: '收入', children: ['工资', '奖金', '投资收益', '其他收入'] },
 ]
 
+const route = useRoute()
+const router = useRouter()
+
 const createOpen = ref(false)
 const creating = ref(false)
 const createError = ref<string | null>(null)
@@ -129,6 +132,22 @@ const deleteOpen = ref(false)
 const deleting = ref(false)
 const deleteError = ref<string | null>(null)
 const deleteTarget = ref<TxRow | null>(null)
+
+watch(
+  () => route.query.create,
+  (v) => {
+    if (v === '1') createOpen.value = true
+  },
+  { immediate: true }
+)
+
+watch(createOpen, (open) => {
+  if (open) return
+  if (route.query.create !== '1') return
+  const nextQuery = { ...route.query }
+  delete (nextQuery as any).create
+  router.replace({ query: nextQuery })
+})
 
 function labelForTxType(t: TxType) {
   if (t === 'expense') return '支出'

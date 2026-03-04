@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import iconSprite from '~/app/assets/iconfont/sprite.svg?raw'
+import { useThemeStore } from '@/stores/theme'
+
+const themeStore = useThemeStore()
+themeStore.init()
 </script>
 
 <template>

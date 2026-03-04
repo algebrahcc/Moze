@@ -1,12 +1,101 @@
 <script setup lang="ts">
 import AppIcon from '@/components/AppIcon.vue'
+import { ToastViewport } from '@/components/ui/toast'
+import { useThemeStore } from '@/stores/theme'
+import { useToast } from '@/app/composables/useToast'
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
+const toast = useToast()
 
+const themeStore = useThemeStore()
+themeStore.init()
+
+const navPosition = useCookie<'top' | 'left'>('moze_nav_position', {
+  default: () => 'top',
+})
+
+const navItems = [
+  { name: '总览', to: '/dashboard', icon: 'lucide:layout-grid' },
+  { name: '资产', to: '/accounts', icon: 'lucide:wallet-cards' },
+  { name: '收支', to: '/transactions', icon: 'lucide:arrow-right-left' },
+  { name: '报表', to: '/reports', icon: 'lucide:line-chart' },
+  { name: '净值', to: '/investments/snapshots', icon: 'lucide:trending-up' },
+] as const
+
+function toggleNavPosition() {
+  navPosition.value = navPosition.value === 'top' ? 'left' : 'top'
+}
+
+const route = useRoute()
+const router = useRouter()
+
+function quickAdd() {
+  router.push({ path: '/transactions', query: { create: '1' } })
+}
 
 async function signOut() {
   await supabase.auth.signOut()
 }
+
+const userMenuOpen = ref(false)
+
+function closeUserMenu() {
+  userMenuOpen.value = false
+}
+
+function onDocumentClick(e: MouseEvent) {
+  const target = e.target as HTMLElement | null
+  if (!target) return
+  if (target.closest?.('[data-user-menu]')) return
+  userMenuOpen.value = false
+}
+
+onMounted(() => {
+  document.addEventListener('click', onDocumentClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocumentClick)
+})
+
+function themeIcon() {
+  if (themeStore.mode === 'system') return 'lucide:monitor'
+  return themeStore.resolved === 'dark' ? 'lucide:moon' : 'lucide:sun'
+}
+
+const themeToastReady = ref(false)
+onMounted(() => {
+  themeToastReady.value = true
+})
+
+watch(
+  () => themeStore.mode,
+  () => {
+    if (!themeToastReady.value) return
+    toast({ title: '主题已切换', description: themeStore.label, variant: 'default', durationMs: 1600 })
+  }
+)
+
+const onlineToastReady = ref(false)
+const isOnline = ref(true)
+onMounted(() => {
+  isOnline.value = navigator.onLine
+  onlineToastReady.value = true
+  const onOnline = () => {
+    isOnline.value = true
+    if (onlineToastReady.value) toast({ title: '网络已恢复', description: '同步已恢复', variant: 'success', durationMs: 1600 })
+  }
+  const onOffline = () => {
+    isOnline.value = false
+    if (onlineToastReady.value) toast({ title: '网络已断开', description: '数据可能无法同步', variant: 'error', durationMs: 2200 })
+  }
+  window.addEventListener('online', onOnline)
+  window.addEventListener('offline', onOffline)
+  onScopeDispose(() => {
+    window.removeEventListener('online', onOnline)
+    window.removeEventListener('offline', onOffline)
+  })
+})
 </script>
 
 <template>
@@ -25,16 +114,9 @@ async function signOut() {
           <span class="text-base font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">Moze</span>
         </NuxtLink>
         
-        <nav class="hidden md:flex items-center gap-1 ml-2">
+        <nav v-if="navPosition === 'top'" class="hidden md:flex items-center gap-1 ml-2">
           <NuxtLink 
-            v-for="item in [
-              { name: '总览', to: '/dashboard', icon: 'lucide:layout-grid' },
-              { name: '资产', to: '/accounts', icon: 'lucide:wallet-cards' },
-              { name: '收支', to: '/transactions', icon: 'lucide:arrow-right-left' },
-              { name: '报表', to: '/reports', icon: 'lucide:line-chart' },
-              { name: '净值', to: '/investments/snapshots', icon: 'lucide:trending-up' },
-              { name: '分类', to: '/categories', icon: 'lucide:layers' }
-            ]" 
+            v-for="item in navItems" 
             :key="item.to"
             :to="item.to" 
             class="group relative flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:text-foreground hover:bg-muted/50"
@@ -55,24 +137,141 @@ async function signOut() {
             </span>
           </div>
           <div class="h-8 w-px bg-border/50 hidden md:block" />
-          <Button 
-            v-if="user" 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
-            class="h-9 w-9 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-            @click="signOut"
-            title="退出登录"
+            class="h-9 w-9 rounded-xl text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+            title="切换主题"
+            @click="themeStore.cycleMode()"
           >
-            <AppIcon name="lucide:log-out" :size="18" />
+            <AppIcon :name="themeIcon()" :size="18" />
           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-9 w-9 rounded-xl text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+            title="快速记账"
+            @click="quickAdd"
+          >
+            <AppIcon name="lucide:plus" :size="18" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-9 w-9 rounded-xl text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+            title="切换导航位置"
+            @click="toggleNavPosition"
+          >
+            <AppIcon :name="navPosition === 'top' ? 'lucide:layout-dashboard' : 'lucide:layout-grid'" :size="18" />
+          </Button>
+          <div v-if="user" class="relative" data-user-menu>
+            <Button
+              variant="ghost"
+              class="h-9 rounded-xl px-2.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+              @click="userMenuOpen = !userMenuOpen"
+            >
+              <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary font-semibold text-xs">
+                {{ user?.email?.[0]?.toUpperCase?.() || 'U' }}
+              </span>
+              <AppIcon name="lucide:chevron-down" :size="16" class="ml-2" />
+            </Button>
+
+            <div
+              v-if="userMenuOpen"
+              class="absolute right-0 mt-2 w-60 rounded-2xl border border-border/50 bg-card/90 p-2 shadow-2xl backdrop-blur-xl"
+            >
+              <div class="px-3 py-2">
+                <div class="text-xs text-muted-foreground">已登录</div>
+                <div class="mt-0.5 text-sm font-semibold text-foreground truncate">{{ user?.email }}</div>
+              </div>
+              <div class="my-2 h-px bg-border/50" />
+              <NuxtLink
+                to="/settings/profile"
+                class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
+                @click="closeUserMenu"
+              >
+                <AppIcon name="lucide:user-circle" :size="16" />
+                个人信息
+              </NuxtLink>
+              <NuxtLink
+                to="/settings"
+                class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
+                @click="closeUserMenu"
+              >
+                <AppIcon name="lucide:settings-2" :size="16" />
+                设置
+              </NuxtLink>
+              <button
+                type="button"
+                class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                @click="closeUserMenu(); signOut()"
+              >
+                <AppIcon name="lucide:log-out" :size="16" />
+                退出
+              </button>
+            </div>
+          </div>
+          <NuxtLink v-else to="/login">
+            <Button
+              variant="outline"
+              class="h-9 rounded-xl border-border/50 bg-background/40 text-foreground/80 hover:bg-muted/40"
+            >
+              登录
+            </Button>
+          </NuxtLink>
         </div>
       </div>
     </header>
 
-    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div v-if="navPosition === 'left'" class="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <aside class="hidden md:flex w-56 shrink-0">
+        <div class="sticky top-24 w-full space-y-2">
+          <div class="rounded-2xl border border-border/50 bg-card/50 p-2 backdrop-blur-xl">
+            <NuxtLink
+              v-for="item in navItems"
+              :key="item.to"
+              :to="item.to"
+              class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:text-foreground hover:bg-muted/50"
+              active-class="!text-primary bg-primary/10 shadow-sm"
+            >
+              <AppIcon :name="item.icon" :size="16" class="transition-transform group-hover:scale-110 group-active:scale-95" />
+              {{ item.name }}
+            </NuxtLink>
+          </div>
+          <div class="rounded-2xl border border-border/50 bg-card/50 p-2 backdrop-blur-xl">
+            <NuxtLink
+              to="/settings/categories"
+              class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:text-foreground hover:bg-muted/50"
+              active-class="!text-primary bg-primary/10 shadow-sm"
+            >
+              <AppIcon name="lucide:layers" :size="16" class="transition-transform group-hover:scale-110 group-active:scale-95" />
+              分类管理
+            </NuxtLink>
+            <NuxtLink
+              to="/settings"
+              class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:text-foreground hover:bg-muted/50"
+              active-class="!text-primary bg-primary/10 shadow-sm"
+            >
+              <AppIcon name="lucide:settings-2" :size="16" class="transition-transform group-hover:scale-110 group-active:scale-95" />
+              设置
+            </NuxtLink>
+          </div>
+        </div>
+      </aside>
+
+      <main class="min-w-0 flex-1 pb-6">
+        <div class="animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <slot />
+        </div>
+      </main>
+    </div>
+
+    <main v-else class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div class="animate-in fade-in slide-in-from-bottom-2 duration-500">
         <slot />
       </div>
     </main>
+
+    <ToastViewport />
   </div>
 </template>

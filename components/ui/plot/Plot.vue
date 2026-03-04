@@ -5,14 +5,22 @@ import ChartLegend from '../chart/ChartLegend.vue'
 
 type PlotType = 'line' | 'stacked' | 'grouped' | 'donut' | 'area'
 
+const emit = defineEmits<{
+  (e: 'toggle-legend', label: string): void
+}>()
+
 const props = withDefaults(defineProps<{
   type: PlotType
   data: Array<Record<string, any>>
   height?: number
   colors?: readonly string[] | string[]
   legendItems?: { label: string; color: string }[]
+  legendInteractive?: boolean
+  legendInactiveLabels?: string[]
 }>(), {
   height: 240,
+  legendInteractive: false,
+  legendInactiveLabels: () => [],
 })
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -195,6 +203,13 @@ watch(
 <template>
   <div class="flex h-full w-full flex-col items-center gap-3">
     <div ref="containerRef" class="w-full" :style="{ height: `${height}px` }" />
-    <ChartLegend v-if="legendItems?.length" :items="legendItems" position="bottom" />
+    <ChartLegend
+      v-if="legendItems?.length"
+      :items="legendItems"
+      position="bottom"
+      :interactive="legendInteractive"
+      :inactive-labels="legendInactiveLabels"
+      @toggle="(label) => emit('toggle-legend', label)"
+    />
   </div>
 </template>

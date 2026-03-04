@@ -223,3 +223,27 @@ create policy asset_snapshots_update on public.asset_snapshots
 create policy asset_snapshots_delete on public.asset_snapshots
   for delete
   using (user_id = auth.uid());
+
+create index if not exists transactions_user_occurred_at_idx on public.transactions(user_id, occurred_at desc);
+create index if not exists transactions_user_type_occurred_at_idx on public.transactions(user_id, type, occurred_at desc);
+create index if not exists transactions_user_category_id_idx on public.transactions(user_id, category_id);
+
+create or replace view public.v_transactions_monthly_totals as
+select
+  t.user_id,
+  date_trunc('month', t.occurred_at)::date as month,
+  sum(case when t.type = 'income' then t.amount else 0 end)::numeric(14,2) as income,
+  sum(case when t.type = 'expense' then t.amount else 0 end)::numeric(14,2) as expense,
+  sum(case when t.type = 'transfer' then t.amount else 0 end)::numeric(14,2) as transfer
+from public.transactions t
+group by t.user_id, date_trunc('month', t.occurred_at)::date;
+
+create or replace view public.v_transactions_monthly_category_expense as
+select
+  t.user_id,
+  date_trunc('month', t.occurred_at)::date as month,
+  coalesce(t.category, '未分类') as category,
+  sum(t.amount)::numeric(14,2) as expense
+from public.transactions t
+where t.type = 'expense'
+group by t.user_id, date_trunc('month', t.occurred_at)::date, coalesce(t.category, '未分类');

@@ -3,28 +3,8 @@ import { computed, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import MonthlyReport from '@/components/report/MonthlyReport.vue'
 import AnnualReport from '@/components/report/AnnualReport.vue'
-
-type TxType = 'expense' | 'income' | 'transfer'
-
-type TxRow = {
-  id?: string
-  type: TxType
-  amount: string
-  occurred_at: string
-  category: string | null
-  note?: string | null
-}
-
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
-
-const loading = ref(false)
-const errorMessage = ref<string | null>(null)
-const yearTx = ref<TxRow[]>([])
-const yearBudgets = ref<Record<string, number>>({}) // 'YYYY-MM-DD' -> amount
-const budgetLoading = ref(false)
-const budgetSaving = ref(false)
-const budgetError = ref<string | null>(null)
+import { useReports } from '@/app/composables/useReports'
+import { useToast } from '@/app/composables/useToast'
 
 const currentTab = ref<'monthly' | 'annual'>('monthly')
 
@@ -45,8 +25,26 @@ watch(currentTab, (newTab) => {
 })
 
 const now = new Date()
-const selectedYear = ref(now.getFullYear())
-const selectedMonth = ref(now.getMonth() + 1)
+const {
+  loading,
+  errorMessage,
+  selectedYear,
+  selectedMonth,
+  monthTx,
+  monthlyTrendData,
+  monthCategoryExpenses,
+  yearBudgets,
+  budgetSaving,
+  budgetError,
+  monthBudget,
+  updateBudget,
+  persistBudget,
+} = useReports()
+const toast = useToast()
+
+watch(budgetError, (msg) => {
+  if (msg) toast({ title: '预算保存失败', description: msg, variant: 'error' })
+})
 
 const yearOptions = computed(() => {
   const current = new Date().getFullYear()
@@ -54,135 +52,6 @@ const yearOptions = computed(() => {
 })
 
 const monthOptions = computed(() => Array.from({ length: 12 }, (_, i) => i + 1))
-
-const monthTx = computed(() => {
-  return yearTx.value.filter((t) => {
-    const d = new Date(t.occurred_at)
-    return d.getFullYear() === selectedYear.value && d.getMonth() + 1 === selectedMonth.value
-  })
-})
-
-const monthDateStr = computed(() => {
-  return new Date(selectedYear.value, selectedMonth.value - 1, 1).toISOString().slice(0, 10)
-})
-
-const monthBudget = computed(() => {
-  return yearBudgets.value[monthDateStr.value] || 0
-})
-
-const monthlyTrendData = computed(() => {
-  const months = Array.from({ length: 12 }, (_, i) => i + 1)
-  return months.map((m) => {
-    let income = 0
-    let expense = 0
-    for (const t of yearTx.value) {
-      const d = new Date(t.occurred_at)
-      if (d.getFullYear() !== selectedYear.value || d.getMonth() + 1 !== m) continue
-      const amt = Number(t.amount ?? 0)
-      if (t.type === 'income') income += amt
-      if (t.type === 'expense') expense += amt
-    }
-    return { label: `${m}月`, income, expense }
-  })
-})
-
-async function loadYearTransactions() {
-  if (!user.value) return
-  loading.value = true
-  errorMessage.value = null
-  const start = new Date(selectedYear.value, 0, 1)
-  const end = new Date(selectedYear.value + 1, 0, 1)
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('id,type,amount,occurred_at,category,note')
-    .gte('occurred_at', start.toISOString())
-    .lt('occurred_at', end.toISOString())
-    .order('occurred_at', { ascending: false }) // Descending for detailed list
-  loading.value = false
-  if (error) {
-    errorMessage.value = error.message
-    yearTx.value = []
-    return
-  }
-  yearTx.value = (data ?? []) as TxRow[]
-}
-
-async function loadYearBudgets() {
-  if (!user.value) return
-  budgetLoading.value = true
-  budgetError.value = null
-  const start = new Date(selectedYear.value, 0, 1).toISOString().slice(0, 10)
-  const end = new Date(selectedYear.value + 1, 0, 1).toISOString().slice(0, 10)
-  
-  const { data, error } = await supabase
-    .from('budgets')
-    .select('month,amount')
-    .gte('month', start)
-    .lt('month', end)
-
-  budgetLoading.value = false
-  if (error) {
-    budgetError.value = error.message
-    yearBudgets.value = {}
-    return
-  }
-  
-  const map: Record<string, number> = {}
-  for (const b of data || []) {
-    map[b.month] = Number(b.amount)
-  }
-  yearBudgets.value = map
-}
-
-async function saveBudget() {
-  if (!user.value) return
-  budgetSaving.value = true
-  budgetError.value = null
-  const monthDate = monthDateStr.value
-  const amountNum = monthBudget.value
-  
-  // We update local state immediately via v-model in MonthlyReport, but need to sync to DB
-  // Actually MonthlyReport emits 'update:budget' which updates the computed property? No, computed is read-only unless setter.
-  // We need a writable ref or handle the update.
-}
-
-function updateBudget(val: number) {
-  const date = monthDateStr.value
-  yearBudgets.value = { ...yearBudgets.value, [date]: val }
-}
-
-async function persistBudget() {
-  if (!user.value) return
-  budgetSaving.value = true
-  const monthDate = monthDateStr.value
-  const amountNum = yearBudgets.value[monthDate] || 0
-
-  if (amountNum <= 0) {
-    const { error } = await supabase.from('budgets').delete().eq('month', monthDate)
-    budgetSaving.value = false
-    if (error) budgetError.value = error.message
-    return
-  }
-
-  const { error } = await supabase
-    .from('budgets')
-    .upsert({ month: monthDate, amount: amountNum }, { onConflict: 'user_id,month' })
-  
-  budgetSaving.value = false
-  if (error) {
-    budgetError.value = error.message
-  }
-}
-
-watch([selectedYear, user], () => {
-  if (user.value) {
-    loadYearTransactions()
-    loadYearBudgets()
-  } else {
-    yearTx.value = []
-    yearBudgets.value = {}
-  }
-}, { immediate: true })
 
 </script>
 
@@ -267,6 +136,7 @@ watch([selectedYear, user], () => {
           v-if="currentTab === 'monthly'"
           :month-tx="monthTx"
           :monthly-trend-data="monthlyTrendData"
+          :month-category-expenses="monthCategoryExpenses"
           :budget="monthBudget"
           :budget-loading="budgetSaving"
           :year="selectedYear"
@@ -276,7 +146,6 @@ watch([selectedYear, user], () => {
         />
         <AnnualReport 
           v-else
-          :year-tx="yearTx"
           :year-budgets="yearBudgets"
           :monthly-trend-data="monthlyTrendData"
           :year="selectedYear"
