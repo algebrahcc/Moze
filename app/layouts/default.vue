@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppIcon from '../../components/AppIcon.vue'
+import AppIcon from '@/components/AppIcon.vue'
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
 
@@ -31,8 +31,9 @@ async function signOut() {
               { name: '总览', to: '/dashboard', icon: 'lucide:layout-grid' },
               { name: '资产', to: '/accounts', icon: 'lucide:wallet-cards' },
               { name: '收支', to: '/transactions', icon: 'lucide:arrow-right-left' },
+              { name: '报表', to: '/reports', icon: 'lucide:line-chart' },
               { name: '净值', to: '/investments/snapshots', icon: 'lucide:trending-up' },
-              { name: '分类', to: '/categories', icon: 'lucide:tags' }
+              { name: '分类', to: '/categories', icon: 'lucide:receipt' }
             ]" 
             :key="item.to"
             :to="item.to" 

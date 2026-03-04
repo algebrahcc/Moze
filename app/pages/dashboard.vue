@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Chart } from '../../../components/ui/chart'
-import AppIcon from '../../../components/AppIcon.vue'
-import EmptyStateIllustration from '../../../components/illustrations/EmptyStateIllustration.vue'
+import { Plot } from '@/components/ui/plot'
+import AppIcon from '@/components/AppIcon.vue'
+import EmptyStateIllustration from '@/components/illustrations/EmptyStateIllustration.vue'
 import { computed } from 'vue'
 
 const supabase = useSupabaseClient()
@@ -19,6 +19,9 @@ const netAssets = ref<number | null>(null)
 const todayPnl = ref<number | null>(null)
 const assetTrendPoints = ref<number[]>([])
 const accountBreakdown = ref<{ type: string; value: number }[]>([])
+
+const trendChartType = ref<'line' | 'stacked' | 'donut'>('line')
+const categoryChartType = ref<'line' | 'stacked' | 'donut'>('donut')
 
 function labelForAccountType(t: string) {
   if (t === 'cash') return '现金'
@@ -260,41 +263,59 @@ async function loadSummary() {
   }))
 }
 
-const trendChartData = computed(() => ({
-  labels: monthlyTrendData.value.map(d => d.label),
-  datasets: [
-    {
-      label: '收入',
-      data: monthlyTrendData.value.map(d => d.income),
-      backgroundColor: 'rgba(34, 197, 94, 0.5)',
-      borderRadius: 4
-    },
-    {
-      label: '支出',
-      data: monthlyTrendData.value.map(d => d.expense),
-      backgroundColor: 'rgba(239, 68, 68, 0.5)',
-      borderRadius: 4
-    }
-  ]
-}))
+const trendColors = ['#22c55e', '#ef4444'] as const
+const trendLegendItems = computed(() => ([
+  { label: '收入', color: trendColors[0] },
+  { label: '支出', color: trendColors[1] },
+]))
 
-const categoryChartData = computed(() => ({
-  labels: categoryData.value.map(d => d[0]),
-  datasets: [
-    {
-      data: categoryData.value.map(d => d[1]),
-      backgroundColor: [
-        'rgba(255, 99, 132, 0.7)',
-        'rgba(54, 162, 235, 0.7)',
-        'rgba(255, 206, 86, 0.7)',
-        'rgba(75, 192, 192, 0.7)',
-        'rgba(153, 102, 255, 0.7)',
-        'rgba(255, 159, 64, 0.7)',
-      ],
-      borderWidth: 0
-    }
-  ]
-}))
+const trendPlotData = computed(() => {
+  if (trendChartType.value === 'donut') {
+    const incomeTotal = monthlyTrendData.value.reduce((sum, d) => sum + d.income, 0)
+    const expenseTotal = monthlyTrendData.value.reduce((sum, d) => sum + d.expense, 0)
+    return [
+      { type: '收入', value: incomeTotal },
+      { type: '支出', value: expenseTotal },
+    ]
+  }
+  return monthlyTrendData.value.flatMap((d) => ([
+    { x: d.label, y: d.income, series: '收入' },
+    { x: d.label, y: d.expense, series: '支出' },
+  ]))
+})
+
+const categoryPalette = [
+  '#2563eb',
+  '#0ea5e9',
+  '#10b981',
+  '#f59e0b',
+  '#f97316',
+  '#f43f5e',
+]
+
+const categoryPlotData = computed(() => {
+  if (categoryChartType.value === 'donut') {
+    return categoryData.value.map((d) => ({ type: d[0], value: d[1] }))
+  }
+  if (categoryChartType.value === 'stacked') {
+    return categoryData.value.map((d) => ({ x: '支出', y: d[1], series: d[0] }))
+  }
+  return categoryData.value.map((d) => ({ x: d[0], y: d[1], series: '支出' }))
+})
+
+const categoryLegendItems = computed(() => {
+  return categoryData.value.map((d, idx) => ({
+    label: String(d[0]),
+    color: categoryPalette[idx % categoryPalette.length] ?? categoryPalette[0] ?? '#2563eb',
+  }))
+})
+
+const categoryLegendForPlot = computed(() => {
+  if (categoryChartType.value === 'line') {
+    return [{ label: '支出', color: categoryPalette[0] ?? '#2563eb' }]
+  }
+  return categoryLegendItems.value
+})
 
 watchEffect(() => {
   if (user.value) {
@@ -323,7 +344,7 @@ watchEffect(() => {
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle class="text-sm font-medium">净资产</CardTitle>
           <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
-            <AppIcon name="lucide:layers" :size="16" />
+            <AppIcon name="lucide:line-chart" :size="16" />
           </div>
         </CardHeader>
         <CardContent>
@@ -406,21 +427,88 @@ watchEffect(() => {
     <!-- Charts Section -->
     <div class="grid gap-4 md:grid-cols-2">
       <!-- Monthly Trend Chart -->
-      <Card class="bg-card/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle class="text-sm font-medium">近半年收支趋势</CardTitle>
+      <Card class="rounded-lg bg-card/60 shadow-[0_18px_40px_-26px_rgba(15,23,42,0.6)] backdrop-blur-sm">
+        <CardHeader class="gap-3">
+          <div class="flex items-center justify-between">
+            <CardTitle class="text-sm font-medium">近半年收支趋势</CardTitle>
+            <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1 rounded-lg border border-border/60 bg-background/70 p-1 text-xs">
+                <button
+                  type="button"
+                  class="px-2 py-1 rounded-md transition"
+                  :class="trendChartType === 'line' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                  @click="trendChartType = 'line'"
+                >
+                  线
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 rounded-md transition"
+                  :class="trendChartType === 'stacked' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                  @click="trendChartType = 'stacked'"
+                >
+                  堆
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 rounded-md transition"
+                  :class="trendChartType === 'donut' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                  @click="trendChartType = 'donut'"
+                >
+                  环
+                </button>
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div class="h-[240px] w-full">
-            <Chart type="bar" :data="trendChartData" />
+            <ClientOnly>
+              <Plot
+                :type="trendChartType"
+                :data="trendPlotData"
+                :colors="trendColors"
+                :legend-items="trendLegendItems"
+              />
+            </ClientOnly>
           </div>
         </CardContent>
       </Card>
 
       <!-- Expense Structure Chart -->
-      <Card class="bg-card/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle class="text-sm font-medium">本月支出构成</CardTitle>
+      <Card class="rounded-lg bg-card/60 shadow-[0_18px_40px_-26px_rgba(15,23,42,0.6)] backdrop-blur-sm">
+        <CardHeader class="gap-3">
+          <div class="flex items-center justify-between">
+            <CardTitle class="text-sm font-medium">本月支出构成</CardTitle>
+            <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1 rounded-lg border border-border/60 bg-background/70 p-1 text-xs">
+                <button
+                  type="button"
+                  class="px-2 py-1 rounded-md transition"
+                  :class="categoryChartType === 'line' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                  @click="categoryChartType = 'line'"
+                >
+                  线
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 rounded-md transition"
+                  :class="categoryChartType === 'stacked' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                  @click="categoryChartType = 'stacked'"
+                >
+                  堆
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 rounded-md transition"
+                  :class="categoryChartType === 'donut' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                  @click="categoryChartType = 'donut'"
+                >
+                  环
+                </button>
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div class="flex h-[240px] w-full items-center justify-center">
@@ -428,7 +516,14 @@ watchEffect(() => {
               <EmptyStateIllustration class="mb-4 w-32 opacity-50" />
               <span>暂无支出数据</span>
             </div>
-            <Chart v-else type="doughnut" :data="categoryChartData" :options="{ cutout: '60%' }" />
+            <ClientOnly v-else>
+              <Plot
+                :type="categoryChartType"
+                :data="categoryPlotData"
+                :colors="categoryPalette"
+                :legend-items="categoryLegendForPlot"
+              />
+            </ClientOnly>
           </div>
         </CardContent>
       </Card>

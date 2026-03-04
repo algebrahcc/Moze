@@ -4,6 +4,25 @@
  
 @layer base {
   :root {
+    --gray-0: #ffffff;
+    --gray-1: #f8fafc;
+    --gray-2: #f1f5f9;
+    --gray-3: #e2e8f0;
+    --gray-4: #cbd5e1;
+    --gray-5: #94a3b8;
+    --gray-6: #64748b;
+    --gray-7: #475569;
+    --gray-8: #334155;
+    --gray-9: #1f2937;
+    --gray-10: #111827;
+    --gray-11: #0f172a;
+    --gray-12: #0b1220;
+    --gray-13: #090f1b;
+    --gray-14: #070b15;
+    --gray-15: #05070e;
+    --chart-tooltip-bg: #0b1220;
+    --chart-tooltip-fg: #f8fafc;
+    --chart-tooltip-border: rgba(148, 163, 184, 0.5);
     --background: 210 20% 98%;
     --foreground: 220 22% 14%;
     --card: 210 30% 99%;
@@ -27,6 +46,25 @@
   }
  
   .dark {
+    --gray-0: #05070e;
+    --gray-1: #070b15;
+    --gray-2: #090f1b;
+    --gray-3: #0b1220;
+    --gray-4: #0f172a;
+    --gray-5: #111827;
+    --gray-6: #1f2937;
+    --gray-7: #334155;
+    --gray-8: #475569;
+    --gray-9: #64748b;
+    --gray-10: #94a3b8;
+    --gray-11: #cbd5e1;
+    --gray-12: #e2e8f0;
+    --gray-13: #f1f5f9;
+    --gray-14: #f8fafc;
+    --gray-15: #ffffff;
+    --chart-tooltip-bg: #f8fafc;
+    --chart-tooltip-fg: #0b1220;
+    --chart-tooltip-border: rgba(15, 23, 42, 0.5);
     --background: 220 22% 8%;
     --foreground: 210 30% 96%;
     --card: 220 22% 10%;
@@ -59,6 +97,23 @@
   }
   h1, h2, h3, h4, h5, h6 {
     @apply tracking-tight font-medium;
+  }
+}
+
+@layer base {
+  .g2-tooltip {
+    background: var(--chart-tooltip-bg) !important;
+    color: var(--chart-tooltip-fg) !important;
+    border: 1px solid var(--chart-tooltip-border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 18px 40px -28px rgba(15, 23, 42, 0.6) !important;
+  }
+
+  .g2-tooltip-title,
+  .g2-tooltip-name,
+  .g2-tooltip-value,
+  .g2-tooltip-list-item {
+    color: var(--chart-tooltip-fg) !important;
   }
 }
 

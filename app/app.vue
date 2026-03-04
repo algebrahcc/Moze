@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import iconSprite from '~/assets/iconfont/sprite.svg?raw'
+import iconSprite from '~/app/assets/iconfont/sprite.svg?raw'
 </script>
 
 <template>

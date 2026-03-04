@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppIcon from '../../components/AppIcon.vue'
+import AppIcon from '@/components/AppIcon.vue'
 
 definePageMeta({
   layout: 'auth',

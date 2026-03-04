@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import AppIcon from '../../../../components/AppIcon.vue'
-import EmptyStateIllustration from '../../../../components/illustrations/EmptyStateIllustration.vue'
+import AppIcon from '@/components/AppIcon.vue'
+import EmptyStateIllustration from '@/components/illustrations/EmptyStateIllustration.vue'
 
 type TxType = 'expense' | 'income' | 'transfer'
+type TxView = 'all' | TxType
 
 type AccountOption = {
   id: string
@@ -32,12 +33,24 @@ type TxRow = {
     type: string
     currency: string
   } | null
+  transaction_tags?: {
+    tag_id: string
+    tags: Tag | null
+  }[]
 }
 
 type Category = {
   id: string
   parent_id: string | null
   name: string
+  created_at: string
+}
+
+type Tag = {
+  id: string
+  name: string
+  color: string | null
+  created_at: string
 }
 
 const supabase = useSupabaseClient()
@@ -52,6 +65,24 @@ const accountsError = ref<string | null>(null)
 
 const categories = ref<Category[]>([])
 const categoriesError = ref<string | null>(null)
+const tags = ref<Tag[]>([])
+const tagsError = ref<string | null>(null)
+
+const viewMode = ref<TxView>('all')
+const filterAccountId = ref<string>('')
+const filterTagId = ref<string>('')
+
+const defaultCategorySeeds = [
+  { name: '餐饮', children: ['早餐', '午餐', '晚餐', '咖啡/饮品'] },
+  { name: '交通', children: ['公交地铁', '打车', '加油', '停车'] },
+  { name: '居家', children: ['房租', '水电', '网费', '物业'] },
+  { name: '购物', children: ['日用品', '服饰', '数码'] },
+  { name: '娱乐', children: ['电影', '游戏', '运动'] },
+  { name: '医疗', children: ['药品', '体检', '挂号'] },
+  { name: '学习', children: ['书籍', '课程', '培训'] },
+  { name: '旅行', children: ['机酒', '门票', '交通'] },
+  { name: '收入', children: ['工资', '奖金', '投资收益', '其他收入'] },
+]
 
 const createOpen = ref(false)
 const creating = ref(false)
@@ -72,6 +103,12 @@ const categoryCreating = ref(false)
 const categoryCreateError = ref<string | null>(null)
 const categoryCreateName = ref('')
 const categoryCreateParentId = ref<string>('')
+
+const selectedTagIds = ref<string[]>([])
+const editTagIds = ref<string[]>([])
+const tagCreateName = ref('')
+const tagCreating = ref(false)
+const tagCreateError = ref<string | null>(null)
 
 const editOpen = ref(false)
 const editing = ref(false)
@@ -124,6 +161,24 @@ function selectedEditCategoryId() {
   return null
 }
 
+function toggleTagSelection(list: string[], tagId: string) {
+  const idx = list.indexOf(tagId)
+  if (idx >= 0) {
+    list.splice(idx, 1)
+    return
+  }
+  list.push(tagId)
+}
+
+const filteredTxs = computed(() => {
+  let rows = viewMode.value === 'all' ? txs.value : txs.value.filter((t) => t.type === viewMode.value)
+  if (filterAccountId.value) {
+    rows = rows.filter((t) => t.account_id === filterAccountId.value || t.to_account_id === filterAccountId.value)
+  }
+  if (!filterTagId.value) return rows
+  return rows.filter((t) => (t.transaction_tags ?? []).some((tt) => tt.tag_id === filterTagId.value))
+})
+
 function resetCreateForm() {
   txType.value = 'expense'
   amount.value = ''
@@ -132,6 +187,7 @@ function resetCreateForm() {
   toAccountId.value = ''
   categoryParentId.value = ''
   categoryChildId.value = ''
+  selectedTagIds.value = []
 }
 
 function ensureTransferTarget() {
@@ -147,6 +203,19 @@ function ensureTransferTarget() {
   }
 }
 
+function ensureEditTransferTarget() {
+  if (editType.value !== 'transfer') return
+  if (!accounts.value.length) return
+  if (!editAccountId.value) {
+    editAccountId.value = accounts.value[0]!.id
+  }
+  if (editToAccountId.value && editToAccountId.value !== editAccountId.value) return
+  const candidate = accounts.value.find((a) => a.id !== editAccountId.value)
+  if (candidate) {
+    editToAccountId.value = candidate.id
+  }
+}
+
 function resetEditForm() {
   editId.value = null
   editType.value = 'expense'
@@ -157,6 +226,7 @@ function resetEditForm() {
   editOccurredAt.value = new Date().toISOString().slice(0, 10)
   editCategoryParentId.value = ''
   editCategoryChildId.value = ''
+  editTagIds.value = []
 }
 
 async function loadAccounts() {
@@ -189,7 +259,7 @@ async function loadCategories() {
   categoriesError.value = null
   const { data, error } = await supabase
     .from('categories')
-    .select('id,parent_id,name')
+    .select('id,parent_id,name,created_at')
     .order('parent_id', { ascending: true })
     .order('name', { ascending: true })
 
@@ -199,7 +269,150 @@ async function loadCategories() {
     return
   }
 
-  categories.value = (data ?? []) as Category[]
+  let rows = (data ?? []) as Category[]
+  if (!rows.length) {
+    await seedDefaultCategories()
+    const { data: seeded, error: seededErr } = await supabase
+      .from('categories')
+      .select('id,parent_id,name,created_at')
+      .order('parent_id', { ascending: true })
+      .order('name', { ascending: true })
+    if (seededErr) {
+      categoriesError.value = seededErr.message
+      categories.value = []
+      return
+    }
+    rows = (seeded ?? []) as Category[]
+  }
+
+  const normalized = await normalizeCategoryDuplicates(rows)
+  if (normalized) {
+    const { data: refreshed, error: refreshedErr } = await supabase
+      .from('categories')
+      .select('id,parent_id,name,created_at')
+      .order('parent_id', { ascending: true })
+      .order('name', { ascending: true })
+    if (refreshedErr) {
+      categoriesError.value = refreshedErr.message
+      categories.value = []
+      return
+    }
+    categories.value = (refreshed ?? []) as Category[]
+    return
+  }
+
+  categories.value = rows
+}
+
+async function loadTags() {
+  if (!user.value) return
+  tagsError.value = null
+  const { data, error } = await supabase
+    .from('tags')
+    .select('id,name,color,created_at')
+    .order('name', { ascending: true })
+  if (error) {
+    tagsError.value = error.message
+    tags.value = []
+    return
+  }
+  tags.value = (data ?? []) as Tag[]
+}
+
+async function seedDefaultCategories() {
+  if (!user.value) return
+  const parentNames = defaultCategorySeeds.map((c) => c.name)
+  const { data: existingParents, error: existingErr } = await supabase
+    .from('categories')
+    .select('id,name')
+    .is('parent_id', null)
+    .in('name', parentNames)
+  if (existingErr) {
+    categoriesError.value = existingErr.message
+    return
+  }
+  const existingMap = new Map((existingParents ?? []).map((p) => [p.name, p.id]))
+  const missingParents = defaultCategorySeeds
+    .filter((c) => !existingMap.has(c.name))
+    .map((c) => ({ name: c.name, parent_id: null }))
+  if (missingParents.length) {
+    const { error: insertErr } = await supabase.from('categories').insert(missingParents)
+    if (insertErr) {
+      categoriesError.value = insertErr.message
+      return
+    }
+  }
+  const { data: parentsData, error: parentsErr } = await supabase
+    .from('categories')
+    .select('id,name')
+    .is('parent_id', null)
+    .in('name', parentNames)
+  if (parentsErr) {
+    categoriesError.value = parentsErr.message
+    return
+  }
+  const parentIdMap = new Map((parentsData ?? []).map((p) => [p.name, p.id]))
+  const parentIds = (parentsData ?? []).map((p) => p.id)
+  const { data: existingChildren, error: childrenErr } = await supabase
+    .from('categories')
+    .select('id,name,parent_id')
+    .in('parent_id', parentIds)
+  if (childrenErr) {
+    categoriesError.value = childrenErr.message
+    return
+  }
+  const childKey = new Set((existingChildren ?? []).map((c) => `${c.parent_id}:${c.name}`))
+  const childPayload: { name: string; parent_id: string }[] = []
+  for (const seed of defaultCategorySeeds) {
+    const parentId = parentIdMap.get(seed.name)
+    if (!parentId) continue
+    for (const child of seed.children) {
+      const key = `${parentId}:${child}`
+      if (!childKey.has(key)) {
+        childPayload.push({ name: child, parent_id: parentId })
+      }
+    }
+  }
+  if (childPayload.length) {
+    const { error: childInsertErr } = await supabase.from('categories').insert(childPayload)
+    if (childInsertErr) {
+      categoriesError.value = childInsertErr.message
+    }
+  }
+}
+
+async function normalizeCategoryDuplicates(rows: Category[]) {
+  const parents = rows.filter((r) => !r.parent_id)
+  const parentsByName: Record<string, Category[]> = {}
+  for (const p of parents) {
+    const name = p.name
+    if (!parentsByName[name]) parentsByName[name] = []
+    parentsByName[name].push(p)
+  }
+  const duplicates = Object.values(parentsByName).filter((g) => g.length > 1)
+  if (!duplicates.length) return false
+  for (const group of duplicates) {
+    const sorted = group.slice().sort((a, b) => a.created_at.localeCompare(b.created_at))
+    const canonical = sorted[0]!
+    const dupParents = sorted.slice(1)
+    const canonicalChildren = rows.filter((r) => r.parent_id === canonical.id)
+    for (const dup of dupParents) {
+      const dupChildren = rows.filter((r) => r.parent_id === dup.id)
+      for (const child of dupChildren) {
+        const existing = canonicalChildren.find((c) => c.name === child.name)
+        if (existing) {
+          await supabase.from('transactions').update({ category_id: existing.id, category: existing.name }).eq('category_id', child.id)
+          await supabase.from('categories').delete().eq('id', child.id)
+        } else {
+          await supabase.from('categories').update({ parent_id: canonical.id }).eq('id', child.id)
+          canonicalChildren.push({ ...child, parent_id: canonical.id })
+        }
+      }
+      await supabase.from('transactions').update({ category_id: canonical.id, category: canonical.name }).eq('category_id', dup.id)
+      await supabase.from('categories').delete().eq('id', dup.id)
+    }
+  }
+  return true
 }
 
 async function loadTransactions() {
@@ -209,7 +422,7 @@ async function loadTransactions() {
 
   const { data, error } = await supabase
     .from('transactions')
-    .select('id,type,amount,currency,category_id,category,note,occurred_at,account_id,to_account_id,account:accounts!transactions_account_id_fkey(name,type,currency),to_account:accounts!transactions_to_account_id_fkey(name,type,currency)')
+    .select('id,type,amount,currency,category_id,category,note,occurred_at,account_id,to_account_id,account:accounts!transactions_account_id_fkey(name,type,currency),to_account:accounts!transactions_to_account_id_fkey(name,type,currency),transaction_tags(tag_id,tags(id,name,color))')
     .order('occurred_at', { ascending: false })
     .limit(50)
 
@@ -263,12 +476,28 @@ async function createTransaction() {
     occurred_at: new Date(`${occurredAt.value}T12:00:00Z`).toISOString(),
   }
 
-  const { error } = await supabase.from('transactions').insert(payload)
+  const { data: created, error } = await supabase
+    .from('transactions')
+    .insert(payload)
+    .select('id')
+    .single()
   creating.value = false
 
   if (error) {
     createError.value = error.message
     return
+  }
+
+  if (created?.id && txType.value !== 'transfer' && selectedTagIds.value.length) {
+    const tagPayload = selectedTagIds.value.map((tagId) => ({
+      transaction_id: created.id,
+      tag_id: tagId,
+    }))
+    const { error: tagErr } = await supabase.from('transaction_tags').insert(tagPayload)
+    if (tagErr) {
+      createError.value = tagErr.message
+      return
+    }
   }
 
   resetCreateForm()
@@ -300,6 +529,22 @@ async function createCategory() {
   await loadCategories()
 }
 
+async function createTag() {
+  if (!user.value) return
+  const name = tagCreateName.value.trim()
+  if (!name) return
+  tagCreating.value = true
+  tagCreateError.value = null
+  const { error } = await supabase.from('tags').insert({ name })
+  tagCreating.value = false
+  if (error) {
+    tagCreateError.value = error.message
+    return
+  }
+  tagCreateName.value = ''
+  await loadTags()
+}
+
 function openEdit(t: TxRow) {
   editId.value = t.id
   editType.value = t.type
@@ -326,6 +571,7 @@ function openEdit(t: TxRow) {
     editCategoryChildId.value = ''
   }
 
+  editTagIds.value = (t.transaction_tags ?? []).map((tt) => tt.tag_id)
   editError.value = null
   editOpen.value = true
 }
@@ -368,6 +614,23 @@ async function saveEdit() {
     return
   }
 
+  const { error: clearErr } = await supabase.from('transaction_tags').delete().eq('transaction_id', editId.value)
+  if (clearErr) {
+    editError.value = clearErr.message
+    return
+  }
+  if (editType.value !== 'transfer' && editTagIds.value.length) {
+    const tagPayload = editTagIds.value.map((tagId) => ({
+      transaction_id: editId.value,
+      tag_id: tagId,
+    }))
+    const { error: tagErr } = await supabase.from('transaction_tags').insert(tagPayload)
+    if (tagErr) {
+      editError.value = tagErr.message
+      return
+    }
+  }
+
   editOpen.value = false
   resetEditForm()
   await loadTransactions()
@@ -402,15 +665,21 @@ watchEffect(() => {
     txs.value = []
     accounts.value = []
     categories.value = []
+    tags.value = []
     return
   }
   loadAccounts()
   loadCategories()
+  loadTags()
   loadTransactions()
 })
 
 watch([txType, accountId, accounts], () => {
   ensureTransferTarget()
+})
+
+watch([editType, editAccountId, accounts], () => {
+  ensureEditTransferTarget()
 })
 </script>
 
@@ -438,7 +707,69 @@ watch([txType, accountId, accounts], () => {
 
     <Card>
       <CardHeader class="text-sm font-medium">
-        交易列表
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <span>交易列表</span>
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="flex items-center gap-1 rounded-lg border border-border/60 bg-background/60 p-1 text-xs">
+              <button
+                type="button"
+                class="px-2 py-1 rounded-md transition"
+                :class="viewMode === 'all' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                @click="viewMode = 'all'"
+              >
+                全部
+              </button>
+              <button
+                type="button"
+                class="px-2 py-1 rounded-md transition"
+                :class="viewMode === 'expense' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                @click="viewMode = 'expense'"
+              >
+                支出
+              </button>
+              <button
+                type="button"
+                class="px-2 py-1 rounded-md transition"
+                :class="viewMode === 'income' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                @click="viewMode = 'income'"
+              >
+                收入
+              </button>
+              <button
+                type="button"
+                class="px-2 py-1 rounded-md transition"
+                :class="viewMode === 'transfer' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                @click="viewMode = 'transfer'"
+              >
+                转账
+              </button>
+            </div>
+            <div class="flex items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-3 py-1.5 text-xs text-muted-foreground">
+              <span class="hidden sm:inline">账户</span>
+              <select
+                v-model="filterAccountId"
+                class="h-8 rounded-md border border-border/60 bg-background px-2 text-xs text-foreground shadow-sm outline-none"
+              >
+                <option value="">全部账户</option>
+                <option v-for="a in accounts" :key="a.id" :value="a.id">
+                  {{ a.name }} · {{ a.currency }}
+                </option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-3 py-1.5 text-xs text-muted-foreground">
+              <span class="hidden sm:inline">标签</span>
+              <select
+                v-model="filterTagId"
+                class="h-8 rounded-md border border-border/60 bg-background px-2 text-xs text-foreground shadow-sm outline-none"
+              >
+                <option value="">全部标签</option>
+                <option v-for="t in tags" :key="t.id" :value="t.id">
+                  {{ t.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div v-if="!user" class="rounded-xl border border-dashed border-border/70 bg-background/40 p-8 text-sm text-muted-foreground">
@@ -454,11 +785,13 @@ watch([txType, accountId, accounts], () => {
         </div>
 
     <div v-else>
-       <div v-if="!txs.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/5 py-12 text-center">
+       <div v-if="!filteredTxs.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/5 py-12 text-center">
          <EmptyStateIllustration class="mb-6 w-48 opacity-50" />
-         <h3 class="text-lg font-semibold">暂无收支记录</h3>
+         <h3 class="text-lg font-semibold">
+           {{ viewMode === 'all' ? '暂无收支记录' : '暂无该类型记录' }}
+         </h3>
          <p class="mt-2 text-sm text-muted-foreground max-w-sm">
-           你还没有记录任何交易。点击右上角“记一笔”开始。
+           {{ viewMode === 'all' ? '你还没有记录任何交易。点击右上角“记一笔”开始。' : '切换到全部可查看其他交易。' }}
          </p>
        </div>
 
@@ -466,16 +799,67 @@ watch([txType, accountId, accounts], () => {
          <div class="overflow-x-auto">
            <table class="w-full text-sm text-left">
              <thead class="bg-muted/50 text-xs uppercase text-muted-foreground">
-               <tr>
+               <tr v-if="viewMode === 'transfer'">
+                 <th class="px-6 py-3 font-medium tracking-wider">转出账户</th>
+                 <th class="px-6 py-3 font-medium tracking-wider">转入账户</th>
+                 <th class="px-6 py-3 font-medium tracking-wider text-right">金额</th>
+                 <th class="px-6 py-3 font-medium tracking-wider text-right">时间</th>
+                 <th class="px-6 py-3 font-medium tracking-wider text-right">操作</th>
+               </tr>
+               <tr v-else>
                  <th class="px-6 py-3 font-medium tracking-wider">类型/分类</th>
                  <th class="px-6 py-3 font-medium tracking-wider">账户</th>
                  <th class="px-6 py-3 font-medium tracking-wider text-right">金额</th>
                  <th class="px-6 py-3 font-medium tracking-wider text-right">时间</th>
-                <th class="px-6 py-3 font-medium tracking-wider text-right">操作</th>
+                 <th class="px-6 py-3 font-medium tracking-wider text-right">操作</th>
                </tr>
              </thead>
              <tbody class="divide-y divide-border/50 bg-card">
-               <tr v-for="t in txs" :key="t.id" class="group transition-colors hover:bg-muted/50">
+              <tr v-for="t in filteredTxs" :key="t.id" class="group transition-colors hover:bg-muted/50">
+                <template v-if="viewMode === 'transfer'">
+                  <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 bg-background text-blue-600 transition-colors group-hover:border-border">
+                        <AppIcon name="lucide:arrow-up-right" :size="16" />
+                      </div>
+                      <div class="flex flex-col">
+                        <span class="font-medium text-foreground">{{ t.account?.name || '—' }}</span>
+                        <span class="text-xs text-muted-foreground">{{ t.account?.currency || t.currency }}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 bg-background text-green-600 transition-colors group-hover:border-border">
+                        <AppIcon name="lucide:arrow-down-left" :size="16" />
+                      </div>
+                      <div class="flex flex-col">
+                        <span class="font-medium text-foreground">{{ t.to_account?.name || '—' }}</span>
+                        <span class="text-xs text-muted-foreground">{{ t.to_account?.currency || t.currency }}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 text-right">
+                    <span class="font-medium font-numeric tabular-nums text-blue-600">
+                      {{ Number(t.amount).toFixed(2) }}
+                      <span class="text-xs text-muted-foreground font-normal ml-0.5">{{ t.currency }}</span>
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-right text-muted-foreground tabular-nums">
+                    {{ new Date(t.occurred_at).toLocaleDateString() }}
+                  </td>
+                  <td class="px-6 py-4 text-right">
+                    <div class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Button variant="ghost" size="icon" class="h-7 w-7" @click="openEdit(t)">
+                        <AppIcon name="lucide:pencil" :size="14" />
+                      </Button>
+                      <Button variant="ghost" size="icon" class="h-7 w-7 text-destructive hover:text-destructive" @click="requestDelete(t)">
+                        <AppIcon name="lucide:trash" :size="14" />
+                      </Button>
+                    </div>
+                  </td>
+                </template>
+                <template v-else>
                  <td class="px-6 py-4">
                    <div class="flex items-center gap-3">
                      <div 
@@ -495,6 +879,15 @@ watch([txType, accountId, accounts], () => {
                        <span v-if="t.note" class="text-xs text-muted-foreground truncate max-w-[150px]">
                          {{ t.note }}
                        </span>
+                      <div v-if="t.transaction_tags?.length" class="mt-1 flex flex-wrap gap-1">
+                        <span
+                          v-for="tag in t.transaction_tags"
+                          :key="tag.tag_id"
+                          class="rounded-full border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground"
+                        >
+                          {{ tag.tags?.name || '标签' }}
+                        </span>
+                      </div>
                      </div>
                    </div>
                  </td>
@@ -534,6 +927,7 @@ watch([txType, accountId, accounts], () => {
                     </Button>
                   </div>
                 </td>
+                </template>
                </tr>
              </tbody>
            </table>
@@ -704,6 +1098,53 @@ watch([txType, accountId, accounts], () => {
                   {{ c.name }}
                 </option>
               </select>
+            </div>
+          </div>
+
+          <div v-if="txType !== 'transfer'" class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                标签
+              </label>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model="tagCreateName"
+                  placeholder="新标签"
+                  class="h-8 w-28 rounded-lg border border-input bg-background/90 px-2 text-xs shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                  :disabled="tagCreating || !tagCreateName.trim()"
+                  @click="createTag"
+                >
+                  <AppIcon name="lucide:plus" :size="14" class="opacity-80" />
+                  添加
+                </button>
+              </div>
+            </div>
+
+            <div v-if="tagsError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+              读取标签失败：{{ tagsError }}
+            </div>
+            <div v-if="tagCreateError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+              创建失败：{{ tagCreateError }}
+            </div>
+
+            <div v-else class="flex flex-wrap gap-2">
+              <button
+                v-for="t in tags"
+                :key="t.id"
+                type="button"
+                class="rounded-full border px-3 py-1 text-xs transition"
+                :class="selectedTagIds.includes(t.id)
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border/60 text-muted-foreground hover:text-foreground'"
+                @click="toggleTagSelection(selectedTagIds, t.id)"
+              >
+                {{ t.name }}
+              </button>
+              <span v-if="!tags.length" class="text-xs text-muted-foreground">暂无标签</span>
             </div>
           </div>
 
@@ -880,6 +1321,53 @@ watch([txType, accountId, accounts], () => {
                   {{ c.name }}
                 </option>
               </select>
+            </div>
+          </div>
+
+          <div v-if="editType !== 'transfer'" class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                标签
+              </label>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model="tagCreateName"
+                  placeholder="新标签"
+                  class="h-8 w-28 rounded-lg border border-input bg-background/90 px-2 text-xs shadow-sm outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                  :disabled="tagCreating || !tagCreateName.trim()"
+                  @click="createTag"
+                >
+                  <AppIcon name="lucide:plus" :size="14" class="opacity-80" />
+                  添加
+                </button>
+              </div>
+            </div>
+
+            <div v-if="tagsError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+              读取标签失败：{{ tagsError }}
+            </div>
+            <div v-if="tagCreateError" class="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+              创建失败：{{ tagCreateError }}
+            </div>
+
+            <div v-else class="flex flex-wrap gap-2">
+              <button
+                v-for="t in tags"
+                :key="t.id"
+                type="button"
+                class="rounded-full border px-3 py-1 text-xs transition"
+                :class="editTagIds.includes(t.id)
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border/60 text-muted-foreground hover:text-foreground'"
+                @click="toggleTagSelection(editTagIds, t.id)"
+              >
+                {{ t.name }}
+              </button>
+              <span v-if="!tags.length" class="text-xs text-muted-foreground">暂无标签</span>
             </div>
           </div>
 

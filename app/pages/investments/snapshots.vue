@@ -182,23 +182,22 @@ async function recalcDailyPnl() {
     daily: r.daily_pnl === null ? null : Number(r.daily_pnl ?? 0),
   }))
 
-  const updates: Promise<any>[] = []
   for (let i = 0; i < rows.length; i++) {
-    const prev = rows[i - 1]
-    const daily = prev ? rows[i].total - prev.total - rows[i].deposit : null
-    const shouldUpdate = daily !== rows[i].daily
+    const row = rows[i]!
+    const prev = i > 0 ? rows[i - 1]! : null
+    const daily = prev ? row.total - prev.total - row.deposit : null
+    const shouldUpdate = daily !== row.daily
     if (shouldUpdate) {
-      updates.push(
-        supabase
-          .from('asset_snapshots')
-          .update({ daily_pnl: daily })
-          .eq('id', rows[i].id)
-      )
+      const { error: updateErr } = await supabase
+        .from('asset_snapshots')
+        .update({ daily_pnl: daily })
+        .eq('id', row.id)
+      if (updateErr) {
+        recalculating.value = false
+        recalcError.value = updateErr.message
+        return
+      }
     }
-  }
-
-  if (updates.length) {
-    await Promise.all(updates)
   }
 
   recalculating.value = false

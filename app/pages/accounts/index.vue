@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import AppIcon from '../../../../components/AppIcon.vue'
-import EmptyStateIllustration from '../../../../components/illustrations/EmptyStateIllustration.vue'
+import AppIcon from '@/components/AppIcon.vue'
+import EmptyStateIllustration from '@/components/illustrations/EmptyStateIllustration.vue'
 
 type AccountType = 'cash' | 'credit' | 'stock'
 
@@ -42,12 +42,22 @@ const deleteOpen = ref(false)
 const deleting = ref(false)
 const deleteError = ref<string | null>(null)
 const deleteTarget = ref<Account | null>(null)
+const archiveOpen = ref(false)
+const archiving = ref(false)
+const archiveError = ref<string | null>(null)
+const archiveTarget = ref<Account | null>(null)
+const archiveNextStatus = ref<boolean>(false)
 const adjustOpen = ref(false)
 const adjusting = ref(false)
 const adjustError = ref<string | null>(null)
 const adjustTarget = ref<Account | null>(null)
 const adjustAmount = ref<string>('')
 const adjustNote = ref<string>('')
+
+const visibleAccounts = computed(() => {
+  if (showArchived.value) return accounts.value
+  return accounts.value.filter((a) => !a.is_archived)
+})
 
 function iconForType(t: AccountType) {
   if (t === 'cash') return 'lucide:banknote'
@@ -224,6 +234,13 @@ function requestDelete(a: Account) {
   deleteOpen.value = true
 }
 
+function requestArchive(a: Account) {
+  archiveTarget.value = a
+  archiveNextStatus.value = !a.is_archived
+  archiveError.value = null
+  archiveOpen.value = true
+}
+
 async function confirmDelete() {
   if (!user.value || !deleteTarget.value) return
   deleting.value = true
@@ -260,6 +277,24 @@ async function confirmDelete() {
 
   deleteOpen.value = false
   deleteTarget.value = null
+  await loadAccounts()
+}
+
+async function confirmArchive() {
+  if (!user.value || !archiveTarget.value) return
+  archiving.value = true
+  archiveError.value = null
+  const { error } = await supabase
+    .from('accounts')
+    .update({ is_archived: archiveNextStatus.value })
+    .eq('id', archiveTarget.value.id)
+  archiving.value = false
+  if (error) {
+    archiveError.value = error.message
+    return
+  }
+  archiveOpen.value = false
+  archiveTarget.value = null
   await loadAccounts()
 }
 
@@ -367,11 +402,11 @@ watchEffect(() => {
         </div>
 
         <div v-else>
-          <div v-if="!accounts.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/5 py-12 text-center">
+          <div v-if="!visibleAccounts.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/5 py-12 text-center">
             <EmptyStateIllustration class="mb-6 w-48 opacity-50" />
             <h3 class="text-lg font-semibold">暂无资产账户</h3>
             <p class="mt-2 text-sm text-muted-foreground max-w-sm">
-              你还没有创建任何账户。点击右上角“新建账户”开始记录你的资产。
+              {{ accounts.length ? '已归档账户已隐藏，可在右上角切换显示。' : '你还没有创建任何账户。点击右上角“新建账户”开始记录你的资产。' }}
             </p>
             <Button class="mt-6" @click="createOpen = true">
               <AppIcon name="lucide:plus" :size="16" class="mr-2" />
@@ -381,7 +416,7 @@ watchEffect(() => {
 
           <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Card 
-              v-for="acc in accounts" 
+              v-for="acc in visibleAccounts" 
               :key="acc.id" 
               class="group relative overflow-hidden transition-all hover:shadow-md hover:border-primary/20"
               :class="{ 'opacity-60 grayscale': acc.is_archived }"
@@ -403,30 +438,36 @@ watchEffect(() => {
                   <span class="text-xs font-medium text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md">
                     {{ labelForType(acc.type) }}
                   </span>
-                  <div class="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button variant="ghost" size="icon" class="h-7 w-7" @click="openEdit(acc)">
+                  <div class="flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                    <Button variant="ghost" size="icon" class="h-7 w-7 rounded-lg border border-border/60 bg-background/70 text-muted-foreground hover:border-border hover:bg-background hover:text-foreground" :title="'编辑账户'" :aria-label="'编辑账户'" @click="openEdit(acc)">
                       <AppIcon name="lucide:pencil" :size="14" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      class="h-7 w-7"
+                      class="h-7 w-7 rounded-lg border border-border/60 bg-background/70 text-muted-foreground hover:border-border hover:bg-background hover:text-foreground"
+                      :title="'调整余额'"
+                      :aria-label="'调整余额'"
                       @click="requestAdjust(acc)"
                     >
-                      <AppIcon name="lucide:scale" :size="14" />
+                      <AppIcon name="lucide:settings-2" :size="14" />
                     </Button>
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      class="h-7 w-7 text-destructive hover:text-destructive" 
-                      @click="setArchived(acc, !acc.is_archived)"
+                      class="h-7 w-7 rounded-lg border border-border/60 bg-background/70 text-amber-600 hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700" 
+                      :title="acc.is_archived ? '恢复归档' : '归档账户'"
+                      :aria-label="acc.is_archived ? '恢复归档' : '归档账户'"
+                      @click="requestArchive(acc)"
                     >
                       <AppIcon :name="acc.is_archived ? 'lucide:rotate-ccw' : 'lucide:archive'" :size="14" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      class="h-7 w-7 text-destructive hover:text-destructive"
+                      class="h-7 w-7 rounded-lg border border-border/60 bg-background/70 text-destructive hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                      :title="'删除账户'"
+                      :aria-label="'删除账户'"
                       @click="requestDelete(acc)"
                     >
                       <AppIcon name="lucide:trash" :size="14" />
@@ -482,6 +523,44 @@ watchEffect(() => {
         <Button type="button" variant="outline" @click="deleteOpen = false">取消</Button>
         <Button type="button" variant="destructive" :disabled="deleting" @click="confirmDelete">
           {{ deleting ? '删除中...' : '确认删除' }}
+        </Button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-if="archiveOpen"
+    class="fixed inset-0 z-50 flex items-end justify-center bg-background/40 p-4 backdrop-blur-sm md:items-center"
+    @click.self="archiveOpen = false"
+  >
+    <div class="w-full max-w-md rounded-3xl border border-border/70 bg-card/95 p-6 shadow-[0_46px_110px_-60px_rgba(8,12,20,0.6)] backdrop-blur">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <div class="text-xs uppercase tracking-[0.28em] text-muted-foreground">
+            {{ archiveNextStatus ? '归档账户' : '恢复账户' }}
+          </div>
+          <div class="mt-2 text-xl font-semibold">
+            {{ archiveTarget?.name || '账户' }}
+          </div>
+        </div>
+        <button
+          type="button"
+          class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-background/70 text-muted-foreground hover:text-foreground"
+          @click="archiveOpen = false"
+        >
+          <AppIcon name="lucide:x" :size="18" />
+        </button>
+      </div>
+      <p class="mt-4 text-sm text-muted-foreground">
+        {{ archiveNextStatus ? '归档后会在默认视图隐藏，但历史流水与统计仍保留。' : '恢复后将重新在账户列表中显示。' }}
+      </p>
+      <div v-if="archiveError" class="mt-4 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+        {{ archiveError }}
+      </div>
+      <div class="mt-6 flex items-center justify-end gap-3">
+        <Button type="button" variant="outline" @click="archiveOpen = false">取消</Button>
+        <Button type="button" :disabled="archiving" @click="confirmArchive">
+          {{ archiving ? '处理中...' : (archiveNextStatus ? '确认归档' : '确认恢复') }}
         </Button>
       </div>
     </div>
@@ -630,6 +709,7 @@ watchEffect(() => {
           </div>
         </form>
       </div>
+    </div>
 
     <div
       v-if="editOpen"
@@ -724,6 +804,5 @@ watchEffect(() => {
           </div>
         </form>
       </div>
-    </div>
     </div>
 </template>

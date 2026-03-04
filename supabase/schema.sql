@@ -41,6 +41,35 @@ create table if not exists public.transactions (
   )
 );
 
+create table if not exists public.tags (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  name text not null,
+  color text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, name)
+);
+
+create table if not exists public.transaction_tags (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  transaction_id uuid not null references public.transactions(id) on delete cascade,
+  tag_id uuid not null references public.tags(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (transaction_id, tag_id)
+);
+
+create table if not exists public.budgets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  month date not null,
+  amount numeric(14,2) not null check (amount >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, month)
+);
+
 create table if not exists public.asset_snapshots (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
@@ -60,12 +89,20 @@ create index if not exists categories_parent_id_idx on public.categories(parent_
 create index if not exists transactions_user_id_idx on public.transactions(user_id);
 create index if not exists transactions_account_id_idx on public.transactions(account_id);
 create index if not exists transactions_to_account_id_idx on public.transactions(to_account_id);
+create index if not exists tags_user_id_idx on public.tags(user_id);
+create index if not exists transaction_tags_user_id_idx on public.transaction_tags(user_id);
+create index if not exists transaction_tags_tx_id_idx on public.transaction_tags(transaction_id);
+create index if not exists transaction_tags_tag_id_idx on public.transaction_tags(tag_id);
+create index if not exists budgets_user_id_idx on public.budgets(user_id);
 create index if not exists asset_snapshots_user_id_idx on public.asset_snapshots(user_id);
 create index if not exists asset_snapshots_account_id_date_idx on public.asset_snapshots(account_id, date desc);
 
 alter table public.accounts enable row level security;
 alter table public.categories enable row level security;
 alter table public.transactions enable row level security;
+alter table public.tags enable row level security;
+alter table public.transaction_tags enable row level security;
+alter table public.budgets enable row level security;
 alter table public.asset_snapshots enable row level security;
 
 create policy accounts_select on public.accounts
@@ -116,6 +153,57 @@ create policy transactions_update on public.transactions
   with check (user_id = auth.uid());
 
 create policy transactions_delete on public.transactions
+  for delete
+  using (user_id = auth.uid());
+
+create policy tags_select on public.tags
+  for select
+  using (user_id = auth.uid());
+
+create policy tags_insert on public.tags
+  for insert
+  with check (user_id = auth.uid());
+
+create policy tags_update on public.tags
+  for update
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy tags_delete on public.tags
+  for delete
+  using (user_id = auth.uid());
+
+create policy transaction_tags_select on public.transaction_tags
+  for select
+  using (user_id = auth.uid());
+
+create policy transaction_tags_insert on public.transaction_tags
+  for insert
+  with check (user_id = auth.uid());
+
+create policy transaction_tags_update on public.transaction_tags
+  for update
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy transaction_tags_delete on public.transaction_tags
+  for delete
+  using (user_id = auth.uid());
+
+create policy budgets_select on public.budgets
+  for select
+  using (user_id = auth.uid());
+
+create policy budgets_insert on public.budgets
+  for insert
+  with check (user_id = auth.uid());
+
+create policy budgets_update on public.budgets
+  for update
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy budgets_delete on public.budgets
   for delete
   using (user_id = auth.uid());
 

@@ -1,4 +1,5 @@
-// https://nuxt.com/docs/api/configuration/nuxt-config
+import { fileURLToPath } from 'node:url'
+
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
   ssr: false,
@@ -6,7 +7,11 @@ export default defineNuxtConfig({
   devServer: {
     port: 3000
   },
-  css: ['~/assets/css/tailwind.css'],
+  alias: {
+    '@': fileURLToPath(new URL('.', import.meta.url)),
+    '~': fileURLToPath(new URL('.', import.meta.url)),
+  },
+  css: ['~/app/assets/css/tailwind.css'],
   modules: [
     '@nuxtjs/tailwindcss',
     'shadcn-nuxt',
