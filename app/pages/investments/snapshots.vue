@@ -6,6 +6,7 @@ type StockAccount = {
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const route = useRoute()
 
 const accounts = ref<StockAccount[]>([])
 const accountsError = ref<string | null>(null)
@@ -80,7 +81,9 @@ async function loadStockAccounts() {
 
   accounts.value = (data ?? []) as StockAccount[]
   if (!accountId.value && accounts.value.length) {
-    accountId.value = accounts.value[0]!.id
+    const q = String((route.query as any)?.account_id || '')
+    const hit = accounts.value.find(a => a.id === q)
+    accountId.value = (hit?.id) || accounts.value[0]!.id
   }
 }
 
@@ -120,9 +123,9 @@ async function submitSnapshot() {
     net_deposit: Number(netDeposit.value || 0),
   }
 
-  const { data: inserted, error } = await supabase
+  const { data: upserted, error } = await supabase
     .from('asset_snapshots')
-    .insert(payload)
+    .upsert(payload, { onConflict: 'account_id,date' })
     .select('id,date,total_value,net_deposit')
     .single()
 
@@ -133,22 +136,22 @@ async function submitSnapshot() {
     return
   }
 
-  if (inserted) {
+  if (upserted) {
     const { data: prevRows } = await supabase
       .from('asset_snapshots')
       .select('total_value,date')
       .eq('account_id', accountId.value)
-      .lt('date', inserted.date)
+      .lt('date', upserted.date)
       .order('date', { ascending: false })
       .limit(1)
 
     const prevTotal = prevRows?.length ? Number((prevRows as any[])[0]?.total_value ?? 0) : null
-    const curTotal = Number((inserted as any).total_value ?? 0)
-    const curDeposit = Number((inserted as any).net_deposit ?? 0)
+    const curTotal = Number((upserted as any).total_value ?? 0)
+    const curDeposit = Number((upserted as any).net_deposit ?? 0)
     const daily = prevTotal === null ? null : curTotal - prevTotal - curDeposit
 
     if (daily !== null && Number.isFinite(daily)) {
-      await supabase.from('asset_snapshots').update({ daily_pnl: daily }).eq('id', (inserted as any).id)
+      await supabase.from('asset_snapshots').update({ daily_pnl: daily }).eq('id', (upserted as any).id)
     }
   }
 
@@ -220,12 +223,9 @@ watchEffect(() => {
   <div class="space-y-8 pb-10">
     <div class="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
       <div>
-        <div class="flex items-center gap-2">
-          <AppIcon name="lucide:trending-up" :size="24" class="text-primary" />
-          <h1 class="text-3xl font-bold tracking-tight text-foreground/90">
-            投资账户净值
-          </h1>
-        </div>
+        <h2 class="text-2xl font-bold tracking-tight text-foreground/90">
+          投资账户净值
+        </h2>
         <p class="mt-2 text-base text-muted-foreground">
           按日期记录总资产与净入金，自动计算盈亏
         </p>
@@ -418,8 +418,8 @@ watchEffect(() => {
                   </td>
                   <td class="px-6 py-4 text-right tabular-nums font-bold font-numeric" 
                     :class="{
-                      'text-destructive': (r.dailyPnl ?? 0) < 0,
-                      'text-emerald-600 dark:text-emerald-400': (r.dailyPnl ?? 0) > 0,
+                      'text-red-600 dark:text-red-400': (r.dailyPnl ?? 0) > 0,
+                      'text-emerald-600 dark:text-emerald-400': (r.dailyPnl ?? 0) < 0,
                       'text-muted-foreground': (r.dailyPnl ?? 0) === 0
                     }"
                   >
@@ -430,8 +430,8 @@ watchEffect(() => {
                   </td>
                   <td class="hidden px-6 py-4 text-right tabular-nums font-bold font-numeric md:table-cell"
                     :class="{
-                      'text-destructive': r.cumulativePnl < 0,
-                      'text-emerald-600 dark:text-emerald-400': r.cumulativePnl > 0,
+                      'text-red-600 dark:text-red-400': r.cumulativePnl > 0,
+                      'text-emerald-600 dark:text-emerald-400': r.cumulativePnl < 0,
                       'text-muted-foreground': r.cumulativePnl === 0
                     }"
                   >

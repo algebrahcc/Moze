@@ -3,6 +3,7 @@ import { BaseChart } from '@/components/ui/chart'
 import AppIcon from '@/components/AppIcon.vue'
 import EmptyStateIllustration from '@/components/illustrations/EmptyStateIllustration.vue'
 import { Button } from '@/components/ui/button'
+import TodoWidget from '@/components/dashboard/TodoWidget.vue'
 
 const {
   loading,
@@ -96,13 +97,13 @@ const {
             {{ loading ? '—' : `¥${((monthIncome ?? 0) - (monthExpense ?? 0)).toFixed(2)}` }}
           </div>
           <div class="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-            <span class="text-green-600 flex items-center gap-0.5">
-              <AppIcon name="lucide:arrow-down" :size="12" />
+            <span class="text-red-600 flex items-center gap-0.5">
+              <AppIcon name="lucide:arrow-up" :size="12" />
               {{ (monthIncome ?? 0).toFixed(0) }}
             </span>
             <span class="text-muted-foreground/30">|</span>
-            <span class="text-destructive flex items-center gap-0.5">
-              <AppIcon name="lucide:arrow-up" :size="12" />
+            <span class="text-emerald-600 flex items-center gap-0.5">
+              <AppIcon name="lucide:arrow-down" :size="12" />
               {{ (monthExpense ?? 0).toFixed(0) }}
             </span>
           </div>
@@ -140,7 +141,7 @@ const {
       <Card class="bg-card/50 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle class="text-sm font-medium">今日盈亏</CardTitle>
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-600">
             <AppIcon name="lucide:activity" :size="16" />
           </div>
         </CardHeader>
@@ -156,7 +157,7 @@ const {
     </div>
 
     <!-- Asset Analysis Section -->
-    <div class="grid gap-4 md:grid-cols-3">
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card class="md:col-span-2 bg-card/60 backdrop-blur-sm">
         <CardHeader>
           <CardTitle>资产趋势 (近30天)</CardTitle>
@@ -205,7 +206,7 @@ const {
               <div class="h-1.5 w-full rounded-full bg-secondary">
                 <div
                   class="h-1.5 rounded-full transition-all duration-500"
-                  :class="item.type === 'stock' ? 'bg-blue-500' : (item.type === 'credit' ? 'bg-orange-500' : 'bg-green-500')"
+                  :class="item.type === 'stock' ? 'bg-blue-500' : (item.type === 'credit' ? 'bg-orange-500' : 'bg-red-600')"
                   :style="{
                     width: `${netAssets && netAssets > 0 ? (item.value / netAssets) * 100 : 0}%`
                   }"
@@ -218,6 +219,8 @@ const {
           </div>
         </CardContent>
       </Card>
+      
+      <TodoWidget />
     </div>
 
     <!-- Income & Expense Analysis -->
@@ -312,7 +315,7 @@ const {
                 <AppIcon 
                   :name="tx.type === 'expense' ? 'lucide:shopping-bag' : (tx.type === 'income' ? 'lucide:wallet' : 'lucide:arrow-right-left')" 
                   :size="18"
-                  :class="tx.type === 'expense' ? 'text-destructive' : (tx.type === 'income' ? 'text-green-600' : 'text-blue-600')" 
+                  :class="tx.type === 'expense' ? 'text-emerald-600' : (tx.type === 'income' ? 'text-red-600' : 'text-blue-600')" 
                 />
               </div>
               <div class="space-y-1">
@@ -328,7 +331,7 @@ const {
             </div>
             <div 
               class="font-medium font-numeric text-base"
-              :class="tx.type === 'expense' ? 'text-foreground' : (tx.type === 'income' ? 'text-green-600' : 'text-blue-600')"
+              :class="tx.type === 'expense' ? 'text-emerald-600' : (tx.type === 'income' ? 'text-red-600' : 'text-blue-600')"
             >
               {{ tx.type === 'expense' ? '-' : '+' }}¥{{ Number(tx.amount).toFixed(2) }}
             </div>

@@ -17,9 +17,33 @@ const navPosition = useCookie<'top' | 'left'>('moze_nav_position', {
 const navItems = [
   { name: '总览', to: '/dashboard', icon: 'lucide:layout-grid' },
   { name: '资产', to: '/accounts', icon: 'lucide:wallet-cards' },
-  { name: '收支', to: '/transactions', icon: 'lucide:arrow-right-left' },
-  { name: '报表', to: '/reports', icon: 'lucide:line-chart' },
-  { name: '净值', to: '/investments/snapshots', icon: 'lucide:trending-up' },
+  {
+    name: '收支',
+    to: '/transactions',
+    icon: 'lucide:arrow-right-left',
+    children: [{ name: '周期记账', to: '/transactions/recurring', icon: 'lucide:repeat' }],
+  },
+  {
+    name: '报表',
+    to: '/reports',
+    icon: 'lucide:line-chart',
+    children: [
+      { name: '资产负债表', to: '/reports/balance-sheet', icon: 'lucide:wallet' },
+      { name: '现金流量表', to: '/reports/cashflow', icon: 'lucide:repeat' },
+      { name: '月度概览', to: '/reports/monthly', icon: 'lucide:line-chart' },
+      { name: '年度报表', to: '/reports/annual', icon: 'lucide:book-open' },
+    ],
+  },
+  {
+    name: '财富',
+    to: '/investments',
+    icon: 'lucide:trending-up',
+    children: [
+      { name: 'FIRE 仪表盘', to: '/investments', icon: 'lucide:target' },
+      { name: '资产配置', to: '/investments/allocation', icon: 'lucide:layers' },
+      { name: '净值记录', to: '/investments/snapshots', icon: 'lucide:history' },
+    ],
+  },
 ] as const
 
 function toggleNavPosition() {
@@ -28,6 +52,16 @@ function toggleNavPosition() {
 
 const route = useRoute()
 const router = useRouter()
+
+function isInSection(basePath: string) {
+  return route.path === basePath || route.path.startsWith(`${basePath}/`)
+}
+
+const activeNavItem = computed(() => {
+  return navItems.find((i) => isInSection(i.to))
+})
+
+const activeChildren = computed(() => (activeNavItem.value as any)?.children as { name: string; to: string; icon?: string }[] | undefined)
 
 function quickAdd() {
   router.push({ path: '/transactions', query: { create: '1' } })
@@ -221,6 +255,24 @@ onMounted(() => {
           </NuxtLink>
         </div>
       </div>
+
+      <div v-if="navPosition === 'top' && activeChildren?.length" class="hidden md:block border-t border-border/40 bg-background/40">
+        <div class="mx-auto flex max-w-7xl items-center gap-1 px-4 py-2 sm:px-6 lg:px-8">
+          <span class="mr-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            {{ activeNavItem?.name }}
+          </span>
+          <NuxtLink
+            v-for="c in activeChildren"
+            :key="c.to"
+            :to="c.to"
+            class="group inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground"
+            exact-active-class="!text-primary bg-primary/10 shadow-sm"
+          >
+            <AppIcon v-if="c.icon" :name="c.icon" :size="14" class="transition-transform group-hover:scale-110 group-active:scale-95" />
+            {{ c.name }}
+          </NuxtLink>
+        </div>
+      </div>
     </header>
 
     <div v-if="navPosition === 'left'" class="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -236,6 +288,21 @@ onMounted(() => {
             >
               <AppIcon :name="item.icon" :size="16" class="transition-transform group-hover:scale-110 group-active:scale-95" />
               {{ item.name }}
+            </NuxtLink>
+          </div>
+          <div v-if="activeChildren?.length" class="rounded-2xl border border-border/50 bg-card/50 p-2 backdrop-blur-xl">
+            <div class="px-3 pb-2 pt-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              {{ activeNavItem?.name }} · 子导航
+            </div>
+            <NuxtLink
+              v-for="c in activeChildren"
+              :key="c.to"
+              :to="c.to"
+              class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:text-foreground hover:bg-muted/50"
+              exact-active-class="!text-primary bg-primary/10 shadow-sm"
+            >
+              <AppIcon v-if="c.icon" :name="c.icon" :size="16" class="transition-transform group-hover:scale-110 group-active:scale-95" />
+              {{ c.name }}
             </NuxtLink>
           </div>
           <div class="rounded-2xl border border-border/50 bg-card/50 p-2 backdrop-blur-xl">

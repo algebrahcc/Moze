@@ -39,7 +39,7 @@ const budgetVsActualData = computed(() => {
 
 const budgetVsActualColors = ['#f59e0b', '#ef4444'] as const
 
-const trendColors = ['#22c55e', '#ef4444'] as const
+const trendColors = ['#ef4444', '#22c55e'] as const
 const trendLegendItems = computed(() => ([
   { label: '收入', color: trendColors[0] ?? '#22c55e' },
   { label: '支出', color: trendColors[1] ?? '#ef4444' },
@@ -60,7 +60,7 @@ const trendPlotData = computed(() => {
       <Card class="border-border/50 bg-card/60 shadow-lg backdrop-blur-xl transition-transform hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle class="text-sm font-medium text-muted-foreground">年度总收入</CardTitle>
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 text-red-600 dark:text-red-400">
             <AppIcon name="lucide:trending-up" :size="20" />
           </div>
         </CardHeader>
@@ -77,7 +77,7 @@ const trendPlotData = computed(() => {
       <Card class="border-border/50 bg-card/60 shadow-lg backdrop-blur-xl transition-transform hover:-translate-y-1">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle class="text-sm font-medium text-muted-foreground">年度总支出</CardTitle>
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
             <AppIcon name="lucide:trending-down" :size="20" />
           </div>
         </CardHeader>
@@ -99,7 +99,7 @@ const trendPlotData = computed(() => {
           </div>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold font-numeric" :class="annualBalance >= 0 ? 'text-primary' : 'text-destructive'">
+          <div class="text-2xl font-bold font-numeric" :class="annualBalance >= 0 ? 'text-red-600' : 'text-emerald-600'">
             {{ annualBalance >= 0 ? '+' : '' }}¥{{ annualBalance.toFixed(2) }}
           </div>
           <p class="text-xs text-muted-foreground mt-1 font-medium">

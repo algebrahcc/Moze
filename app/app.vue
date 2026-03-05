@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import iconSprite from '~/app/assets/iconfont/sprite.svg?raw'
 import { useThemeStore } from '@/stores/theme'
+import { useRecurringStore } from '@/stores/recurring'
 
 const themeStore = useThemeStore()
-themeStore.init()
+const recurringStore = useRecurringStore()
+
+onMounted(() => {
+  themeStore.init()
+  // Check for due recurring transactions on app launch
+  setTimeout(() => {
+    recurringStore.processDueRules()
+  }, 3000) // Delay slightly to avoid blocking initial render
+})
 </script>
 
 <template>

@@ -1,28 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import MonthlyReport from '@/components/report/MonthlyReport.vue'
 import AnnualReport from '@/components/report/AnnualReport.vue'
 import { useReports } from '@/app/composables/useReports'
 import { useToast } from '@/app/composables/useToast'
 
-const currentTab = ref<'monthly' | 'annual'>('monthly')
-
-// Sync tab with URL query
-const route = useRoute()
-const router = useRouter()
-
-watch(() => route.query.tab, (newTab) => {
-  if (newTab === 'monthly' || newTab === 'annual') {
-    currentTab.value = newTab
-  }
-}, { immediate: true })
-
-watch(currentTab, (newTab) => {
-  if (route.query.tab !== newTab) {
-    router.push({ query: { ...route.query, tab: newTab } })
-  }
-})
+const items = [
+  { key: 'balance', label: '资产负债表', to: '/reports/balance-sheet', icon: 'lucide:wallet' },
+  { key: 'cashflow', label: '现金流量表', to: '/reports/cashflow', icon: 'lucide:repeat' },
+  { key: 'monthly', label: '月度概览', to: '/reports/monthly', icon: 'lucide:line-chart' },
+  { key: 'annual', label: '年度报表', to: '/reports/annual', icon: 'lucide:book-open' },
+] as const
 
 const now = new Date()
 const {
@@ -57,100 +46,32 @@ const monthOptions = computed(() => Array.from({ length: 12 }, (_, i) => i + 1))
 
 <template>
   <div class="space-y-8 pb-10">
-    <div class="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
+    <div class="flex items-center justify-between">
       <div>
         <div class="flex items-center gap-2">
           <AppIcon name="lucide:line-chart" :size="24" class="text-primary" />
-          <h1 class="text-3xl font-bold tracking-tight text-foreground/90">
-            报表中心
-          </h1>
+          <h1 class="text-3xl font-bold tracking-tight text-foreground/90">报表中心</h1>
         </div>
-        <p class="mt-2 text-base text-muted-foreground">
-          全方位的财务数据分析与预算管理
-        </p>
-      </div>
-      <div class="flex flex-wrap items-center gap-3">
-        <div class="flex items-center rounded-xl border border-border/50 bg-muted/30 p-1 backdrop-blur-md">
-          <button
-            type="button"
-            class="rounded-lg px-4 py-2 text-sm font-medium transition-all"
-            :class="currentTab === 'monthly' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
-            @click="currentTab = 'monthly'"
-          >
-            月度概览
-          </button>
-          <button
-            type="button"
-            class="rounded-lg px-4 py-2 text-sm font-medium transition-all"
-            :class="currentTab === 'annual' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
-            @click="currentTab = 'annual'"
-          >
-            年度报表
-          </button>
-        </div>
-        
-        <div class="h-8 w-px bg-border/50 mx-1 hidden md:block" />
-
-        <div class="relative">
-          <select
-            v-model="selectedYear"
-            class="h-10 appearance-none rounded-xl border border-border/50 bg-background/50 pl-4 pr-10 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary backdrop-blur-md"
-          >
-            <option v-for="y in yearOptions" :key="y" :value="y">
-              {{ y }}年
-            </option>
-          </select>
-          <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        </div>
-
-        <div v-if="currentTab === 'monthly'" class="relative animate-in fade-in slide-in-from-left-2 duration-300">
-          <select
-            v-model="selectedMonth"
-            class="h-10 appearance-none rounded-xl border border-border/50 bg-background/50 pl-4 pr-10 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary backdrop-blur-md"
-          >
-            <option v-for="m in monthOptions" :key="m" :value="m">
-              {{ m }}月
-            </option>
-          </select>
-          <AppIcon name="lucide:chevron-down" :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        </div>
+        <p class="mt-2 text-base text-muted-foreground">选择一种报表类型查看详细分析</p>
       </div>
     </div>
-
-    <div v-if="errorMessage" class="rounded-2xl border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive">
-      <div class="flex items-center gap-2 font-semibold">
-        <AppIcon name="lucide:alert-circle" :size="16" />
-        加载失败
-      </div>
-      <p class="mt-1 opacity-90">{{ errorMessage }}</p>
-    </div>
-
-    <div v-else-if="loading" class="flex flex-col items-center justify-center py-16 text-muted-foreground">
-      <AppIcon name="lucide:loader-2" :size="32" class="animate-spin opacity-50" />
-      <p class="mt-4 text-sm">正在加载报表数据...</p>
-    </div>
-
-    <div v-else>
-      <Transition mode="out-in" name="fade">
-        <MonthlyReport 
-          v-if="currentTab === 'monthly'"
-          :month-tx="monthTx"
-          :monthly-trend-data="monthlyTrendData"
-          :month-category-expenses="monthCategoryExpenses"
-          :budget="monthBudget"
-          :budget-loading="budgetSaving"
-          :year="selectedYear"
-          :month="selectedMonth"
-          @update:budget="updateBudget"
-          @save-budget="persistBudget"
-        />
-        <AnnualReport 
-          v-else
-          :year-budgets="yearBudgets"
-          :monthly-trend-data="monthlyTrendData"
-          :year="selectedYear"
-        />
-      </Transition>
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <NuxtLink
+        v-for="item in items"
+        :key="item.key"
+        :to="item.to"
+        class="group rounded-2xl border border-border/60 bg-card/60 p-5 transition-all hover:shadow-lg hover:-translate-y-1"
+      >
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <AppIcon :name="item.icon" :size="18" />
+          </div>
+          <div>
+            <div class="text-sm font-semibold">{{ item.label }}</div>
+            <div class="text-xs text-muted-foreground">进入查看</div>
+          </div>
+        </div>
+      </NuxtLink>
     </div>
   </div>
 </template>

@@ -114,6 +114,36 @@ themeStore.init()
             </div>
             <AppIcon name="lucide:chevron-right" :size="18" class="text-muted-foreground transition-transform group-hover:translate-x-0.5" />
           </NuxtLink>
+          <NuxtLink
+            to="/settings/tags"
+            class="group mt-3 flex items-center justify-between rounded-2xl border border-border/50 bg-background/40 px-5 py-4 transition-colors hover:bg-background/70"
+          >
+            <div class="flex items-center gap-3">
+              <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <AppIcon name="lucide:book-open" :size="18" />
+              </div>
+              <div class="min-w-0">
+                <div class="text-sm font-semibold">标签管理</div>
+                <div class="mt-0.5 text-xs text-muted-foreground">用于筛选与报表分析的标签维护</div>
+              </div>
+            </div>
+            <AppIcon name="lucide:chevron-right" :size="18" class="text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          </NuxtLink>
+          <NuxtLink
+            to="/settings/recurring"
+            class="group mt-3 flex items-center justify-between rounded-2xl border border-border/50 bg-background/40 px-5 py-4 transition-colors hover:bg-background/70"
+          >
+            <div class="flex items-center gap-3">
+              <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <AppIcon name="lucide:repeat" :size="18" />
+              </div>
+              <div class="min-w-0">
+                <div class="text-sm font-semibold">周期性交易</div>
+                <div class="mt-0.5 text-xs text-muted-foreground">每月/每周自动记账规则管理</div>
+              </div>
+            </div>
+            <AppIcon name="lucide:chevron-right" :size="18" class="text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          </NuxtLink>
         </CardContent>
       </Card>
     </div>

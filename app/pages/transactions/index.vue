@@ -3,6 +3,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import EmptyStateIllustration from '@/components/illustrations/EmptyStateIllustration.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { onMounted, onBeforeUnmount } from 'vue'
 
 type TxType = 'expense' | 'income' | 'transfer'
 type TxView = 'all' | TxType
@@ -73,6 +74,136 @@ const tagsError = ref<string | null>(null)
 const viewMode = ref<TxView>('all')
 const filterAccountId = ref<string>('')
 const filterTagId = ref<string>('')
+const searchQuery = ref('') // Add search query state
+
+const layoutMode = ref<'list' | 'calendar'>('list')
+const isSelectionMode = ref(false)
+const selectedIds = ref<Set<string>>(new Set())
+const searchInputEl = ref<HTMLInputElement | null>(null)
+const searchChips = [
+  { label: '餐饮', type: 'query', value: '餐饮' },
+  { label: '交通', type: 'query', value: '交通' },
+  { label: '购物', type: 'query', value: '购物' },
+  { label: '订阅', type: 'query', value: '订阅' },
+  { label: '转账', type: 'view', value: 'transfer' },
+]
+function applyChip(chip: any) {
+  if (chip.type === 'view') {
+    viewMode.value = chip.value as any
+    return
+  }
+  searchQuery.value = chip.value
+}
+function handleKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault()
+    searchInputEl.value?.focus()
+  }
+}
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
+
+const calendarYear = ref(new Date().getFullYear())
+const calendarMonth = ref(new Date().getMonth()) // 0-11
+const calendarTxs = ref<{id: string, type: string, amount: number, occurred_at: string}[]>([])
+const calendarLoading = ref(false)
+
+const calendarDays = computed(() => {
+  const year = calendarYear.value
+  const month = calendarMonth.value
+  const firstDay = new Date(year, month, 1)
+  const lastDay = new Date(year, month + 1, 0)
+  const startDayOfWeek = firstDay.getDay() // 0 (Sun) - 6 (Sat)
+  const daysInMonth = lastDay.getDate()
+  
+  const result = []
+  // Padding for previous month
+  for (let i = 0; i < startDayOfWeek; i++) {
+    result.push({ date: null, income: 0, expense: 0, dateStr: '' })
+  }
+  
+  // Current month days
+  for (let i = 1; i <= daysInMonth; i++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`
+    const dayTxs = calendarTxs.value.filter(t => t.occurred_at.startsWith(dateStr))
+    const income = dayTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0)
+    const expense = dayTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0)
+    result.push({ date: new Date(year, month, i), income, expense, dateStr })
+  }
+  
+  return result
+})
+
+async function loadCalendarTxs() {
+  calendarLoading.value = true
+  const start = new Date(calendarYear.value, calendarMonth.value, 1).toISOString()
+  const end = new Date(calendarYear.value, calendarMonth.value + 1, 0, 23, 59, 59).toISOString()
+  
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('id,type,amount,occurred_at')
+    .gte('occurred_at', start)
+    .lte('occurred_at', end)
+    
+  if (!error && data) {
+    calendarTxs.value = data as any
+  }
+  calendarLoading.value = false
+}
+
+function prevMonth() {
+  if (calendarMonth.value === 0) {
+    calendarMonth.value = 11
+    calendarYear.value--
+  } else {
+    calendarMonth.value--
+  }
+  loadCalendarTxs()
+}
+
+function nextMonth() {
+  if (calendarMonth.value === 11) {
+    calendarMonth.value = 0
+    calendarYear.value++
+  } else {
+    calendarMonth.value++
+  }
+  loadCalendarTxs()
+}
+
+watch(layoutMode, (v) => {
+  if (v === 'calendar') loadCalendarTxs()
+})
+
+function toggleSelection(id: string) {
+  const newSet = new Set(selectedIds.value)
+  if (newSet.has(id)) newSet.delete(id)
+  else newSet.add(id)
+  selectedIds.value = newSet
+}
+
+async function batchDelete() {
+  if (!confirm(`确认删除选中的 ${selectedIds.value.size} 条记录？`)) return
+  const { error } = await supabase.from('transactions').delete().in('id', Array.from(selectedIds.value))
+  if (!error) {
+    selectedIds.value = new Set()
+    isSelectionMode.value = false
+    await loadTransactions()
+  }
+}
+
+function selectAll() {
+  if (selectedIds.value.size === filteredTxs.value.length) {
+    selectedIds.value = new Set()
+  } else {
+    selectedIds.value = new Set(filteredTxs.value.map(t => t.id))
+  }
+}
+
 
 const defaultCategorySeeds = [
   { name: '餐饮', children: ['早餐', '午餐', '晚餐', '咖啡/饮品'] },
@@ -193,11 +324,29 @@ function toggleTagSelection(list: string[], tagId: string) {
 
 const filteredTxs = computed(() => {
   let rows = viewMode.value === 'all' ? txs.value : txs.value.filter((t) => t.type === viewMode.value)
+  
   if (filterAccountId.value) {
     rows = rows.filter((t) => t.account_id === filterAccountId.value || t.to_account_id === filterAccountId.value)
   }
-  if (!filterTagId.value) return rows
-  return rows.filter((t) => (t.transaction_tags ?? []).some((tt) => tt.tag_id === filterTagId.value))
+  
+  if (filterTagId.value) {
+    rows = rows.filter((t) => (t.transaction_tags ?? []).some((tt) => tt.tag_id === filterTagId.value))
+  }
+
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    rows = rows.filter((t) => {
+      // Amount match
+      if (t.amount.includes(q)) return true
+      // Category match
+      if (t.category?.toLowerCase().includes(q)) return true
+      // Note match
+      if (t.note?.toLowerCase().includes(q)) return true
+      return false
+    })
+  }
+
+  return rows
 })
 
 function resetCreateForm() {
@@ -718,87 +867,161 @@ watch([editType, editAccountId, accounts], () => {
           查看和管理您的所有支出、收入及转账记录。
         </p>
       </div>
-      <Button size="lg" class="shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95" @click="createOpen = true">
-        <span class="inline-flex items-center gap-2">
-          <AppIcon name="lucide:plus" :size="18" />
-          记一笔
-        </span>
-      </Button>
+      <div class="flex gap-2">
+        <Button variant="outline" size="lg" class="shadow-sm" @click="router.push('/transactions/recurring')">
+          <AppIcon name="lucide:repeat" :size="18" class="mr-2" />
+          周期记账
+        </Button>
+        <Button size="lg" class="shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95" @click="createOpen = true">
+          <span class="inline-flex items-center gap-2">
+            <AppIcon name="lucide:plus" :size="18" />
+            记一笔
+          </span>
+        </Button>
+      </div>
     </div>
 
     <Card class="border-border/50 bg-card/60 shadow-xl backdrop-blur-xl">
-      <CardHeader class="pb-4">
-        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <CardHeader class="pb-2">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
           <CardTitle class="text-lg font-medium text-foreground/80">交易列表</CardTitle>
-          <div class="flex flex-wrap items-center gap-3">
-            <!-- View Mode Toggle -->
-            <div class="flex items-center rounded-xl border border-border/50 bg-background/50 p-1 shadow-sm backdrop-blur-md">
-              <button
-                type="button"
-                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
-                :class="viewMode === 'all' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
-                @click="viewMode = 'all'"
-              >
-                全部
+          <div class="flex items-center gap-2">
+            <!-- View Mode Segmented -->
+            <div class="hidden md:flex items-center rounded-xl border border-border/50 bg-background/50 p-1 shadow-sm">
+              <button type="button" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+                :class="viewMode === 'all' ? 'bg-muted text-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
+                @click="viewMode = 'all'">全部</button>
+              <button type="button" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+                :class="viewMode === 'expense' ? 'bg-destructive text-destructive-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
+                @click="viewMode = 'expense'">支出</button>
+              <button type="button" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+                :class="viewMode === 'income' ? 'bg-red-600 text-white shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
+                @click="viewMode = 'income'">收入</button>
+              <button type="button" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+                :class="viewMode === 'transfer' ? 'bg-blue-600 text-white shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
+                @click="viewMode = 'transfer'">转账</button>
+            </div>
+            <div class="md:hidden relative">
+              <select v-model="viewMode" class="h-9 appearance-none rounded-xl border border-border/50 bg-background/50 px-3 pr-8 text-sm shadow-sm">
+                <option value="all">全部</option>
+                <option value="expense">支出</option>
+                <option value="income">收入</option>
+                <option value="transfer">转账</option>
+              </select>
+              <AppIcon name="lucide:chevron-down" :size="14" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            </div>
+            <!-- Layout Toggle -->
+            <div class="flex items-center rounded-xl border border-border/50 bg-background/50 p-1 shadow-sm">
+              <button type="button" class="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+                :class="{ 'bg-primary text-primary-foreground shadow-sm': layoutMode === 'list' }"
+                @click="layoutMode = 'list'" title="列表视图">
+                <AppIcon name="lucide:receipt" :size="16" />
               </button>
-              <button
-                type="button"
-                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
-                :class="viewMode === 'expense' ? 'bg-destructive text-destructive-foreground shadow-md' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
-                @click="viewMode = 'expense'"
-              >
-                支出
-              </button>
-              <button
-                type="button"
-                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
-                :class="viewMode === 'income' ? 'bg-emerald-600 text-white shadow-md' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
-                @click="viewMode = 'income'"
-              >
-                收入
-              </button>
-              <button
-                type="button"
-                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
-                :class="viewMode === 'transfer' ? 'bg-blue-600 text-white shadow-md' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
-                @click="viewMode = 'transfer'"
-              >
-                转账
+              <button type="button" class="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+                :class="{ 'bg-primary text-primary-foreground shadow-sm': layoutMode === 'calendar' }"
+                @click="layoutMode = 'calendar'" title="日历视图">
+                <AppIcon name="lucide:calendar" :size="16" />
               </button>
             </div>
-
-            <!-- Filters -->
-            <div class="flex items-center gap-2">
-              <div class="relative">
-                <select
-                  v-model="filterAccountId"
-                  class="h-9 appearance-none rounded-xl border border-border/50 bg-background/50 pl-3 pr-8 text-sm text-foreground shadow-sm backdrop-blur-md transition-colors hover:bg-background/80 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="">全部账户</option>
-                  <option v-for="a in accounts" :key="a.id" :value="a.id">
-                    {{ a.name }}
-                  </option>
-                </select>
-                <AppIcon name="lucide:chevron-down" :size="14" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              </div>
-
-              <div class="relative">
-                <select
-                  v-model="filterTagId"
-                  class="h-9 appearance-none rounded-xl border border-border/50 bg-background/50 pl-3 pr-8 text-sm text-foreground shadow-sm backdrop-blur-md transition-colors hover:bg-background/80 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="">全部标签</option>
-                  <option v-for="t in tags" :key="t.id" :value="t.id">
-                    {{ t.name }}
-                  </option>
-                </select>
-                <AppIcon name="lucide:chevron-down" :size="14" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              </div>
-            </div>
+            <!-- Batch Toggle (icon-only on small screens) -->
+            <Button v-if="layoutMode === 'list'" variant="outline" size="icon"
+              class="h-9 w-9 rounded-xl"
+              :class="{ 'bg-secondary': isSelectionMode }"
+              :title="isSelectionMode ? '取消批量' : '批量选择'"
+              @click="isSelectionMode = !isSelectionMode; if(!isSelectionMode) selectedIds.clear()">
+              <AppIcon name="lucide:check" :size="16" />
+            </Button>
           </div>
         </div>
       </CardHeader>
+      <!-- Filter & Search Bar -->
+      <div class="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between border-b border-border/50">
+        <div class="flex items-center gap-2 w-full md:max-w-lg">
+          <div class="relative group flex-1">
+            <AppIcon name="lucide:search" :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              v-model="searchQuery"
+              ref="searchInputEl"
+              placeholder="搜索金额、分类、备注"
+              class="h-10 w-full rounded-full border border-border/50 bg-background/60 pl-9 pr-20 text-sm shadow-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/30"
+            >
+            <button v-if="searchQuery" class="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" @click="searchQuery = ''">
+              <AppIcon name="lucide:x" :size="14" />
+            </button>
+            <div class="absolute right-12 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-1 rounded-lg border border-border/50 bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground">
+              Ctrl K
+            </div>
+          </div>
+          <div class="hidden lg:flex items-center gap-1">
+            <button v-for="chip in searchChips" :key="chip.label" class="px-2.5 py-1 rounded-full text-xs border border-border/50 bg-background/50 hover:bg-muted transition-colors" @click="applyChip(chip)">
+              {{ chip.label }}
+            </button>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <div class="relative">
+            <select
+              v-model="filterAccountId"
+              class="h-9 min-w-[140px] appearance-none rounded-xl border border-border/50 bg-background/50 px-3 pr-8 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
+            >
+              <option value="">全部账户</option>
+              <option v-for="acc in accounts" :key="acc.id" :value="acc.id">{{ acc.name }}</option>
+            </select>
+            <AppIcon name="lucide:chevron-down" :size="14" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          </div>
+          <div class="relative">
+            <select
+              v-model="filterTagId"
+              class="h-9 min-w-[140px] appearance-none rounded-xl border border-border/50 bg-background/50 px-3 pr-8 text-sm shadow-sm outline-none transition-all hover:bg-background/80 focus:border-primary focus:ring-1 focus:ring-primary"
+            >
+              <option value="">全部标签</option>
+              <option v-for="tag in tags" :key="tag.id" :value="tag.id">{{ tag.name }}</option>
+            </select>
+            <AppIcon name="lucide:chevron-down" :size="14" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          </div>
+        </div>
+      </div>
+
       <CardContent>
+        <div v-if="layoutMode === 'calendar'" class="space-y-4">
+          <div class="flex items-center justify-between mb-4">
+            <Button variant="outline" size="icon" @click="prevMonth">
+              <AppIcon name="lucide:chevron-left" :size="16" />
+            </Button>
+            <div class="text-lg font-semibold">{{ calendarYear }}年 {{ calendarMonth + 1 }}月</div>
+            <Button variant="outline" size="icon" @click="nextMonth">
+              <AppIcon name="lucide:chevron-right" :size="16" />
+            </Button>
+          </div>
+          
+          <div class="grid grid-cols-7 gap-px bg-border/30 rounded-lg overflow-hidden border border-border/30">
+            <div v-for="day in ['日', '一', '二', '三', '四', '五', '六']" :key="day" class="bg-muted/30 p-2 text-center text-xs font-medium text-muted-foreground">
+              {{ day }}
+            </div>
+            <div 
+              v-for="(day, idx) in calendarDays" 
+              :key="idx" 
+              class="bg-card min-h-[80px] p-2 flex flex-col gap-1 transition-colors hover:bg-muted/20 relative"
+              :class="{ 'opacity-40': !day.dateStr.includes(`-${String(calendarMonth + 1).padStart(2, '0')}-`) }"
+            >
+              <div v-if="day.date" class="text-xs font-medium" :class="{'text-primary': day.dateStr === new Date().toISOString().slice(0, 10)}">
+                {{ day.date.getDate() }}
+              </div>
+              <div v-if="day.income > 0" class="text-[10px] text-red-600 font-numeric bg-red-500/10 px-1 rounded truncate">
+                +{{ day.income.toFixed(0) }}
+              </div>
+              <div v-if="day.expense > 0" class="text-[10px] text-emerald-600 font-numeric bg-emerald-500/10 px-1 rounded truncate">
+                -{{ day.expense.toFixed(0) }}
+              </div>
+            </div>
+          </div>
+          
+          <div v-if="calendarLoading" class="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm">
+            <AppIcon name="lucide:loader-2" :size="32" class="animate-spin text-primary" />
+          </div>
+        </div>
+
+        <div v-else>
         <div v-if="!user" class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/50 bg-muted/30 py-16 text-center">
           <AppIcon name="lucide:lock" :size="48" class="mb-4 text-muted-foreground/50" />
           <h3 class="text-lg font-medium">请先登录</h3>
@@ -834,6 +1057,9 @@ watch([editType, editAccountId, accounts], () => {
               <table class="w-full text-sm text-left">
                 <thead class="bg-muted/30 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
                   <tr v-if="viewMode === 'transfer'">
+                    <th v-if="isSelectionMode" class="px-6 py-4 w-[50px]">
+                      <input type="checkbox" :checked="selectedIds.size === filteredTxs.length && filteredTxs.length > 0" @change="selectAll" class="rounded border-border cursor-pointer" />
+                    </th>
                     <th class="px-6 py-4">转出账户</th>
                     <th class="px-6 py-4">转入账户</th>
                     <th class="px-6 py-4 text-right">金额</th>
@@ -841,6 +1067,9 @@ watch([editType, editAccountId, accounts], () => {
                     <th class="px-6 py-4 text-right w-[100px]">操作</th>
                   </tr>
                   <tr v-else>
+                    <th v-if="isSelectionMode" class="px-6 py-4 w-[50px]">
+                      <input type="checkbox" :checked="selectedIds.size === filteredTxs.length && filteredTxs.length > 0" @change="selectAll" class="rounded border-border cursor-pointer" />
+                    </th>
                     <th class="px-6 py-4">分类 / 备注</th>
                     <th class="px-6 py-4">账户</th>
                     <th class="px-6 py-4 text-right">金额</th>
@@ -849,7 +1078,10 @@ watch([editType, editAccountId, accounts], () => {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-border/30">
-                  <tr v-for="t in filteredTxs" :key="t.id" class="group transition-colors hover:bg-muted/40">
+                  <tr v-for="t in filteredTxs" :key="t.id" class="group transition-colors hover:bg-muted/40" :class="{'bg-primary/5': selectedIds.has(t.id)}" @click="isSelectionMode ? toggleSelection(t.id) : null">
+                    <td v-if="isSelectionMode" class="px-6 py-4" @click.stop>
+                      <input type="checkbox" :checked="selectedIds.has(t.id)" @change="toggleSelection(t.id)" class="rounded border-border cursor-pointer" />
+                    </td>
                     <template v-if="viewMode === 'transfer'">
                       <td class="px-6 py-4">
                         <div class="flex items-center gap-3">
@@ -899,8 +1131,8 @@ watch([editType, editAccountId, accounts], () => {
                           <div 
                             class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors"
                             :class="{
-                              'bg-destructive/10 text-destructive': t.type === 'expense',
-                              'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400': t.type === 'income',
+                              'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400': t.type === 'expense',
+                              'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400': t.type === 'income',
                               'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400': t.type === 'transfer'
                             }"
                           >
@@ -935,8 +1167,8 @@ watch([editType, editAccountId, accounts], () => {
                         <span 
                           class="text-base font-bold font-numeric tabular-nums"
                           :class="{
-                            'text-foreground': t.type === 'expense',
-                            'text-emerald-600 dark:text-emerald-400': t.type === 'income',
+                            'text-emerald-600 dark:text-emerald-400': t.type === 'expense',
+                            'text-red-600 dark:text-red-400': t.type === 'income',
                             'text-blue-600 dark:text-blue-400': t.type === 'transfer'
                           }"
                         >
@@ -965,8 +1197,17 @@ watch([editType, editAccountId, accounts], () => {
             </div>
           </div>
         </div>
+      </div>
       </CardContent>
     </Card>
+
+    <div v-if="selectedIds.size > 0" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full border border-border bg-background/80 p-2 shadow-xl backdrop-blur-xl animate-in slide-in-from-bottom-4">
+      <span class="pl-3 text-sm font-medium">已选 {{ selectedIds.size }} 项</span>
+      <div class="h-4 w-px bg-border mx-1"></div>
+      <Button variant="destructive" size="sm" class="rounded-full" @click="batchDelete">
+        删除
+      </Button>
+    </div>
 
     <div
       v-if="createOpen"
